@@ -36,11 +36,23 @@ body {
 .app-shell__header {
   border-bottom: 1px solid var(--border);
   padding: 16px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
 }
 
 .app-shell__header h1 {
   margin: 0;
   font-size: 20px;
+}
+
+.app-shell__user {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 14px;
+  color: var(--text-muted);
 }
 
 .app-shell__content {
