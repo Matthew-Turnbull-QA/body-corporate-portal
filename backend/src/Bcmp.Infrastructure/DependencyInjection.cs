@@ -1,6 +1,7 @@
 using Bcmp.Application.Auth;
 using Bcmp.Application.Users;
 using Bcmp.Infrastructure.Auth;
+using Bcmp.Infrastructure.Bootstrap;
 using Bcmp.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -29,6 +30,13 @@ public static class DependencyInjection
             .ValidateDataAnnotations()
             .ValidateOnStart();
         services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
+
+        // Not ValidateOnStart: Bootstrap:AdminEmail is only required when actually seeding (--seed),
+        // not on every normal app start.
+        services.AddOptions<BootstrapOptions>()
+            .Bind(configuration.GetSection(BootstrapOptions.SectionName))
+            .ValidateDataAnnotations();
+        services.AddScoped<DbInitializer>();
 
         return services;
     }

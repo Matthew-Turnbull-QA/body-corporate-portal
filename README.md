@@ -21,6 +21,7 @@ dotnet user-secrets set "Auth:Google:ClientId" "<google-oauth-client-id>" --proj
 dotnet user-secrets set "Auth:Jwt:SigningKey" "<random-secret>" --project src/Bcmp.Api
 dotnet user-secrets set "Bootstrap:AdminEmail" "<your-google-email>" --project src/Bcmp.Api
 dotnet ef database update --project src/Bcmp.Infrastructure --startup-project src/Bcmp.Api
+dotnet run --project src/Bcmp.Api -- --seed   # one-time: creates the first Administrator, safe to re-run
 dotnet run --project src/Bcmp.Api
 ```
 

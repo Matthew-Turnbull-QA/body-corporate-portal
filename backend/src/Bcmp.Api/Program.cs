@@ -4,6 +4,7 @@ using Bcmp.Api.ErrorHandling;
 using Bcmp.Application;
 using Bcmp.Domain.Users;
 using Bcmp.Infrastructure;
+using Bcmp.Infrastructure.Bootstrap;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Serilog;
@@ -71,6 +72,14 @@ try
     });
 
     var app = builder.Build();
+
+    if (args.Contains("--seed"))
+    {
+        using var seedScope = app.Services.CreateScope();
+        var dbInitializer = seedScope.ServiceProvider.GetRequiredService<DbInitializer>();
+        await dbInitializer.SeedAsync();
+        return;
+    }
 
     // Configure the HTTP request pipeline.
     if (app.Environment.IsDevelopment())
