@@ -21,7 +21,9 @@ export function LoginPage() {
     setError(null);
     try {
       await signInWithGoogle(credential.credential);
-      navigate(redirectTo, { replace: true });
+      window.requestAnimationFrame(() => {
+        navigate(redirectTo, { replace: true });
+      });
     } catch (err) {
       setError(
         err instanceof ApiError && err.status === 401

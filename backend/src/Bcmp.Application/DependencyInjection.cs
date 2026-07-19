@@ -1,4 +1,5 @@
 using Bcmp.Application.Auth;
+using Bcmp.Application.Properties;
 using Bcmp.Application.Users;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -10,6 +11,7 @@ public static class DependencyInjection
     {
         services.AddSingleton(TimeProvider.System);
         services.AddScoped<IUserService, UserService>();
+        services.AddScoped<IPropertyService, PropertyService>();
         services.AddScoped<IAuthenticationService, AuthenticationService>();
 
         return services;

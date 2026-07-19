@@ -10,6 +10,7 @@ export function AppLayout() {
         <h1>Body Corporate Management Portal</h1>
         {user && (
           <div className="app-shell__user">
+            <Link to="/properties">Properties</Link>
             {user.role === "Administrator" && <Link to="/users">Users</Link>}
             <span>
               {user.displayName} ({user.role})

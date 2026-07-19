@@ -10,11 +10,50 @@ interface GoogleSignInResponse {
 interface AuthContextValue {
   user: UserDto | null;
   isSigningIn: boolean;
-  signInWithGoogle: (googleIdToken: string) => Promise<void>;
+  signInWithGoogle: (googleIdToken: string) => Promise<UserDto>;
   signOut: () => void;
 }
 
+const AUTH_STORAGE_KEY = "bcmp.auth";
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
+
+function persistAuthState(accessToken: string, user: UserDto) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({ accessToken, user }));
+}
+
+function clearStoredAuthState() {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.localStorage.removeItem(AUTH_STORAGE_KEY);
+}
+
+function readStoredAuthState(): { accessToken: string; user: UserDto } | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  const raw = window.localStorage.getItem(AUTH_STORAGE_KEY);
+  if (!raw) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as { accessToken?: string; user?: UserDto };
+    if (!parsed.accessToken || !parsed.user) {
+      return null;
+    }
+
+    return { accessToken: parsed.accessToken, user: parsed.user };
+  } catch {
+    return null;
+  }
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<UserDto | null>(null);
@@ -22,10 +61,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = useCallback(() => {
     setAccessToken(null);
+    clearStoredAuthState();
     setUser(null);
   }, []);
 
   useEffect(() => {
+    const storedAuth = readStoredAuthState();
+    if (storedAuth) {
+      setAccessToken(storedAuth.accessToken);
+      setUser(storedAuth.user);
+    }
+
     setUnauthorizedHandler(signOut);
     return () => setUnauthorizedHandler(null);
   }, [signOut]);
@@ -39,6 +85,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
       setAccessToken(result.accessToken);
       setUser(result.user);
+      persistAuthState(result.accessToken, result.user);
+      return result.user;
     } finally {
       setIsSigningIn(false);
     }
