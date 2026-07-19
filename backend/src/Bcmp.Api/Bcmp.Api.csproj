@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Microsoft.AspNetCore.OpenApi 10.0.10 pulls in Microsoft.OpenApi 2.0.0 transitively, which NuGet
+         flags as NU1903 (GHSA-v5pm-xwqc-g5wc). Newer Microsoft.OpenApi majors (3.x) are not yet compatible
+         with this AspNetCore.OpenApi source generator (build fails on IOpenApiMediaType.Example). This is
+         an unresolved upstream Microsoft package-pairing issue, not something fixable at this layer; the
+         OpenAPI document is only ever served from the dev-only Swagger UI, never exposed in Production. -->
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.10" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Bcmp.Application\Bcmp.Application.csproj" />
+    <ProjectReference Include="..\Bcmp.Infrastructure\Bcmp.Infrastructure.csproj" />
+  </ItemGroup>
+
+</Project>

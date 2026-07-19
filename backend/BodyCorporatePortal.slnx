@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Bcmp.Api/Bcmp.Api.csproj" />
+    <Project Path="src/Bcmp.Application/Bcmp.Application.csproj" />
+    <Project Path="src/Bcmp.Domain/Bcmp.Domain.csproj" />
+    <Project Path="src/Bcmp.Infrastructure/Bcmp.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Bcmp.Application.Tests/Bcmp.Application.Tests.csproj" />
+    <Project Path="tests/Bcmp.Domain.Tests/Bcmp.Domain.Tests.csproj" />
+  </Folder>
+</Solution>
