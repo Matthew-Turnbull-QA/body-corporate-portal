@@ -1,4 +1,6 @@
+using Bcmp.Application.Auth;
 using Bcmp.Application.Users;
+using Bcmp.Infrastructure.Auth;
 using Bcmp.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -15,6 +17,12 @@ public static class DependencyInjection
 
         services.AddDbContext<AppDbContext>(options => options.UseNpgsql(connectionString));
         services.AddScoped<IUserRepository, UserRepository>();
+
+        services.AddOptions<GoogleAuthOptions>()
+            .Bind(configuration.GetSection(GoogleAuthOptions.SectionName))
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+        services.AddScoped<IGoogleTokenValidator, GoogleTokenValidator>();
 
         return services;
     }
