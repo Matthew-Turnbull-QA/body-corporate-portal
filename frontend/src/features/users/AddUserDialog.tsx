@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import type { UserRole } from "../auth/types";
 
 interface AddUserDialogProps {
@@ -12,6 +12,17 @@ export function AddUserDialog({ onSubmit, onClose }: AddUserDialogProps) {
   const [role, setRole] = useState<UserRole>("Trustee");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        onClose();
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [onClose]);
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -28,30 +39,34 @@ export function AddUserDialog({ onSubmit, onClose }: AddUserDialogProps) {
   }
 
   return (
-    <div className="dialog-overlay" role="dialog" aria-modal="true">
-      <form className="dialog" onSubmit={handleSubmit}>
+    <div className="dialog-overlay" role="dialog" aria-modal="true" onClick={onClose}>
+      <form className="dialog" onClick={(event) => event.stopPropagation()} onSubmit={handleSubmit}>
         <h3>Add user</h3>
-        <label>
+        <label className="dialog__field">
           Email
           <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
         </label>
-        <label>
+        <label className="dialog__field">
           Display name
           <input required value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
         </label>
-        <label>
+        <label className="dialog__field">
           Role
           <select value={role} onChange={(e) => setRole(e.target.value as UserRole)}>
             <option value="Trustee">Trustee</option>
             <option value="Administrator">Administrator</option>
           </select>
         </label>
-        {error && <p role="alert">{error}</p>}
+        {error && (
+          <p className="error-banner" role="alert">
+            {error}
+          </p>
+        )}
         <div className="dialog__actions">
-          <button type="button" onClick={onClose} disabled={isSubmitting}>
+          <button className="button button--ghost" type="button" onClick={onClose} disabled={isSubmitting}>
             Cancel
           </button>
-          <button type="submit" disabled={isSubmitting}>
+          <button className="button button--primary" type="submit" disabled={isSubmitting}>
             {isSubmitting ? "Adding…" : "Add"}
           </button>
         </div>
