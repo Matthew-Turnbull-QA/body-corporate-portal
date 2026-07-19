@@ -71,6 +71,21 @@ try
             policy.RequireRole(nameof(UserRole.Administrator), nameof(UserRole.Trustee)));
     });
 
+    const string frontendCorsPolicy = "Frontend";
+    var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
+    builder.Services.AddCors(options =>
+    {
+        options.AddPolicy(frontendCorsPolicy, policy =>
+        {
+            if (allowedOrigins.Length > 0)
+            {
+                // Frontend and backend live on different origins even in production (separate
+                // free-tier hosts), so this is required, not just a local-dev convenience.
+                policy.WithOrigins(allowedOrigins).AllowAnyHeader().AllowAnyMethod();
+            }
+        });
+    });
+
     var app = builder.Build();
 
     if (args.Contains("--seed"))
@@ -90,6 +105,8 @@ try
     app.UseExceptionHandler();
 
     app.UseHttpsRedirection();
+
+    app.UseCors(frontendCorsPolicy);
 
     app.UseAuthentication();
     app.UseAuthorization();

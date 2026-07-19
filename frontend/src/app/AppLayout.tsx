@@ -1,4 +1,4 @@
-import { Outlet } from "react-router-dom";
+import { Link, Outlet } from "react-router-dom";
 import { useAuth } from "../features/auth/AuthContext";
 
 export function AppLayout() {
@@ -10,6 +10,7 @@ export function AppLayout() {
         <h1>Body Corporate Management Portal</h1>
         {user && (
           <div className="app-shell__user">
+            {user.role === "Administrator" && <Link to="/users">Users</Link>}
             <span>
               {user.displayName} ({user.role})
             </span>
