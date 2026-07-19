@@ -24,6 +24,12 @@ public static class DependencyInjection
             .ValidateOnStart();
         services.AddScoped<IGoogleTokenValidator, GoogleTokenValidator>();
 
+        services.AddOptions<JwtOptions>()
+            .Bind(configuration.GetSection(JwtOptions.SectionName))
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+        services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
+
         return services;
     }
 }

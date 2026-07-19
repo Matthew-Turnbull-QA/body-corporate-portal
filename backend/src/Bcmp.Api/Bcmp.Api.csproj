@@ -13,6 +13,7 @@
          with this AspNetCore.OpenApi source generator (build fails on IOpenApiMediaType.Example). This is
          an unresolved upstream Microsoft package-pairing issue, not something fixable at this layer; the
          OpenAPI document is only ever served from the dev-only Swagger UI, never exposed in Production. -->
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.10" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.10" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.4">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
