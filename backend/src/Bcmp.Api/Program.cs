@@ -1,4 +1,5 @@
 using Bcmp.Api.ErrorHandling;
+using Bcmp.Application;
 using Bcmp.Infrastructure;
 using Serilog;
 
@@ -22,6 +23,7 @@ try
     builder.Services.AddControllers();
     // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
     builder.Services.AddOpenApi();
+    builder.Services.AddApplication();
     builder.Services.AddInfrastructure(builder.Configuration);
 
     builder.Services.AddExceptionHandler<GlobalExceptionHandler>();

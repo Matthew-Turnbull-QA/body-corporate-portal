@@ -1,3 +1,4 @@
+using Bcmp.Application.Users;
 using Bcmp.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -13,6 +14,7 @@ public static class DependencyInjection
             ?? throw new InvalidOperationException("Missing required configuration: ConnectionStrings:Default");
 
         services.AddDbContext<AppDbContext>(options => options.UseNpgsql(connectionString));
+        services.AddScoped<IUserRepository, UserRepository>();
 
         return services;
     }
