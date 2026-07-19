@@ -26,7 +26,20 @@ public sealed class UserRepository(AppDbContext dbContext) : IUserRepository
 
     public async Task UpdateAsync(User user, CancellationToken cancellationToken = default)
     {
-        dbContext.Users.Update(user);
+        // User is an immutable record: callers fetch it, then pass a new instance built via `with { ... }`.
+        // If the original instance from GetByIdAsync/GetByEmailAsync is still tracked on this same
+        // DbContext, Update() would try to attach a second instance with the same key and throw.
+        // Update the already-tracked entry's values instead when one exists.
+        var trackedEntry = dbContext.ChangeTracker.Entries<User>().SingleOrDefault(e => e.Entity.Id == user.Id);
+        if (trackedEntry is not null)
+        {
+            trackedEntry.CurrentValues.SetValues(user);
+        }
+        else
+        {
+            dbContext.Users.Update(user);
+        }
+
         await dbContext.SaveChangesAsync(cancellationToken);
     }
 }

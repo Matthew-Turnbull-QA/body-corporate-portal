@@ -1,4 +1,3 @@
-using System.Security.Claims;
 using System.Text;
 using Bcmp.Api.Authorization;
 using Bcmp.Api.ErrorHandling;
@@ -26,7 +25,8 @@ try
 
     // Add services to the container.
 
-    builder.Services.AddControllers();
+    builder.Services.AddControllers()
+        .AddJsonOptions(options => options.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter()));
     // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
     builder.Services.AddOpenApi();
     builder.Services.AddApplication();
@@ -58,7 +58,7 @@ try
                 ValidateLifetime = true,
                 ValidateIssuerSigningKey = true,
                 IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSigningKey)),
-                RoleClaimType = ClaimTypes.Role,
+                RoleClaimType = "role",
             };
         });
 

@@ -20,7 +20,9 @@ public sealed class JwtTokenGenerator(IOptions<JwtOptions> options) : IJwtTokenG
         {
             new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
             new Claim(JwtRegisteredClaimNames.Email, user.Email),
-            new Claim(ClaimTypes.Role, user.Role.ToString()),
+            // Plain "role" (not ClaimTypes.Role) so it survives JwtSecurityTokenHandler's default outbound
+            // claim-type mapping unchanged and matches Program.cs's RoleClaimType on validation.
+            new Claim("role", user.Role.ToString()),
         };
 
         var token = new JwtSecurityToken(
