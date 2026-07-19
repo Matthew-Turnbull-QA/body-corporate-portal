@@ -23,6 +23,15 @@ public sealed class PropertyRepository(AppDbContext dbContext) : IPropertyReposi
 
     public async Task UpdateAsync(Property property, CancellationToken cancellationToken = default)
     {
+        var trackedEntry = dbContext.ChangeTracker
+            .Entries<Property>()
+            .FirstOrDefault(entry => entry.Entity.Id == property.Id);
+
+        if (trackedEntry is not null && !ReferenceEquals(trackedEntry.Entity, property))
+        {
+            dbContext.Entry(trackedEntry.Entity).State = EntityState.Detached;
+        }
+
         dbContext.Properties.Update(property);
         await dbContext.SaveChangesAsync(cancellationToken);
     }

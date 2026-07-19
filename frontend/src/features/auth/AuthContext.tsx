@@ -15,7 +15,15 @@ interface AuthContextValue {
 }
 
 const AUTH_STORAGE_KEY = "bcmp.auth";
-const AuthContext = createContext<AuthContextValue | undefined>(undefined);
+const defaultAuthContextValue: AuthContextValue = {
+  user: null,
+  isSigningIn: false,
+  signInWithGoogle: async () => {
+    throw new Error("useAuth must be used within an AuthProvider");
+  },
+  signOut: () => undefined,
+};
+const AuthContext = createContext<AuthContextValue>(defaultAuthContextValue);
 
 function persistAuthState(accessToken: string, user: UserDto) {
   if (typeof window === "undefined") {

@@ -1,10 +1,13 @@
 import { useState } from "react";
-import { useProperties, useCreateProperty } from "./useProperties";
+import { useProperties, useCreateProperty, useUpdateProperty } from "./useProperties";
+import { EditPropertyDialog } from "./EditPropertyDialog";
 
 export function PropertiesListPage() {
   const { data: properties, isLoading, error } = useProperties();
   const createProperty = useCreateProperty();
+  const updateProperty = useUpdateProperty();
   const [isAdding, setIsAdding] = useState(false);
+  const [editingProperty, setEditingProperty] = useState<string | null>(null);
   const [form, setForm] = useState({
     name: "",
     addressLine1: "",
@@ -21,11 +24,18 @@ export function PropertiesListPage() {
     return <p role="alert">Failed to load properties.</p>;
   }
 
+  const propertyToEdit = properties?.find((property) => property.id === editingProperty) ?? null;
+
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     await createProperty.mutateAsync(form);
     setForm({ name: "", addressLine1: "", suburb: "", state: "", postcode: "" });
     setIsAdding(false);
+  }
+
+  async function handleUpdate(values: { name: string; addressLine1: string; suburb: string; state: string; postcode: string }) {
+    if (!propertyToEdit) return;
+    await updateProperty.mutateAsync({ id: propertyToEdit.id, request: values });
   }
 
   return (
@@ -45,6 +55,7 @@ export function PropertiesListPage() {
             <th>Suburb</th>
             <th>State</th>
             <th>Postcode</th>
+            <th></th>
           </tr>
         </thead>
         <tbody>
@@ -55,6 +66,11 @@ export function PropertiesListPage() {
               <td>{property.suburb}</td>
               <td>{property.state}</td>
               <td>{property.postcode}</td>
+              <td>
+                <button type="button" onClick={() => setEditingProperty(property.id)}>
+                  Edit
+                </button>
+              </td>
             </tr>
           ))}
         </tbody>
@@ -99,6 +115,14 @@ export function PropertiesListPage() {
             </button>
           </div>
         </form>
+      )}
+
+      {propertyToEdit && (
+        <EditPropertyDialog
+          property={propertyToEdit}
+          onSubmit={handleUpdate}
+          onClose={() => setEditingProperty(null)}
+        />
       )}
     </section>
   );

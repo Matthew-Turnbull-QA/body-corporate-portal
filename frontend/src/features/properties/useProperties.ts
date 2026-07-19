@@ -16,3 +16,13 @@ export function useCreateProperty() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: propertiesQueryKey }),
   });
 }
+
+export function useUpdateProperty() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, request }: { id: string; request: CreatePropertyRequest }) =>
+      propertiesApi.updateProperty(id, request),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: propertiesQueryKey }),
+  });
+}

@@ -25,3 +25,10 @@ export function listProperties() {
 export function createProperty(request: CreatePropertyRequest) {
   return apiFetch<PropertyDto>("/api/properties", { method: "POST", body: JSON.stringify(request) });
 }
+
+export function updateProperty(id: string, request: CreatePropertyRequest) {
+  return apiFetch<PropertyDto>(`/api/properties/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(request),
+  });
+}
