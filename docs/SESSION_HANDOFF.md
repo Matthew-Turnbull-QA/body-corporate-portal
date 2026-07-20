@@ -45,6 +45,18 @@ Also since the last handoff: a small UI polish pass landed on the login page
 intended page if already signed in, drops the hero image's dark overlay) —
 see the "Polish login page" commit.
 
+**Phase 2's Jobs domain is now implemented** (backend + frontend, see the
+"Add Jobs domain" and "Add Jobs list screen" commits) — see
+`docs/PROJECT_STATE.md` for the full picture, but the short version: `Job`
+entity with a `JobSource` parameter on creation so a future email-ingestion
+path is a new caller, not a refactor. Backend was live-verified against
+Postgres/API (curl + a hand-crafted admin JWT, all 37 unit tests green).
+**The frontend was not click-tested** — this local session had no
+headless-browser tooling, unlike the cloud sandbox that verified Phase 1's
+frontend. `npm run build`/`npm run lint` are green, which only proves it
+compiles, not that it works. First thing to do: open `/jobs` in a real
+browser and run through add-job + status-change.
+
 **Phase 2+ (Properties, Jobs, Email integration, Assignment engine,
 Dashboards, AI enrichment)**: not started. See `docs/ARCHITECTURE.md`'s
 "Roadmap" section (carried over from the original plan) for the intended
