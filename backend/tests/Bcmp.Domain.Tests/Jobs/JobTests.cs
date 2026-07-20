@@ -23,6 +23,7 @@ public class JobTests
         job.Source.Should().Be(JobSource.Manual);
         job.CreatedByUserId.Should().Be(createdByUserId);
         job.CreatedAtUtc.Should().Be(CreatedAtUtc);
+        job.UpdatedAtUtc.Should().Be(CreatedAtUtc);
     }
 
     [Test]

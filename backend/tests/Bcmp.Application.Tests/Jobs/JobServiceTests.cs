@@ -55,17 +55,20 @@ public class JobServiceTests
     }
 
     [Test]
-    public async Task UpdateStatusAsync_WithKnownJob_UpdatesStatus()
+    public async Task UpdateStatusAsync_WithKnownJob_UpdatesStatusAndUpdatedAtUtc()
     {
         var property = MakeProperty();
         var job = Job.Create(Guid.NewGuid(), property.Id, "Leaking roof", "Description", JobSource.Manual, Guid.NewGuid(), Now);
+        var later = Now.AddDays(1);
+        var sut = new JobService(_jobRepository, _propertyRepository, new FixedTimeProvider(later));
         _jobRepository.GetByIdAsync(job.Id).Returns(job);
         _propertyRepository.GetByIdAsync(property.Id).Returns(property);
 
-        var result = await _sut.UpdateStatusAsync(job.Id, JobStatus.InProgress);
+        var result = await sut.UpdateStatusAsync(job.Id, JobStatus.InProgress);
 
         result.Status.Should().Be(JobStatus.InProgress);
-        await _jobRepository.Received(1).UpdateAsync(Arg.Is<Job>(j => j.Status == JobStatus.InProgress), Arg.Any<CancellationToken>());
+        result.UpdatedAtUtc.Should().Be(later);
+        await _jobRepository.Received(1).UpdateAsync(Arg.Is<Job>(j => j.Status == JobStatus.InProgress && j.UpdatedAtUtc == later), Arg.Any<CancellationToken>());
     }
 
     [Test]

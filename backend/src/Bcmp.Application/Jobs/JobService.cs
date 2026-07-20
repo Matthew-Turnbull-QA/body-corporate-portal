@@ -47,7 +47,7 @@ public sealed class JobService(IJobRepository jobRepository, IPropertyRepository
         var job = await jobRepository.GetByIdAsync(id, cancellationToken)
             ?? throw new KeyNotFoundException($"Job '{id}' was not found.");
 
-        var updated = job with { Status = status };
+        var updated = job with { Status = status, UpdatedAtUtc = timeProvider.GetUtcNow() };
         await jobRepository.UpdateAsync(updated, cancellationToken);
 
         var property = await propertyRepository.GetByIdAsync(updated.PropertyId, cancellationToken);

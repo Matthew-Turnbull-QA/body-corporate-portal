@@ -40,5 +40,8 @@ public sealed class JobConfiguration : IEntityTypeConfiguration<Job>
 
         builder.Property(j => j.CreatedAtUtc)
             .IsRequired();
+
+        builder.Property(j => j.UpdatedAtUtc)
+            .IsRequired();
     }
 }

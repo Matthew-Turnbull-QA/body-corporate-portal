@@ -10,6 +10,7 @@ public sealed record Job
     public required JobSource Source { get; init; }
     public required Guid CreatedByUserId { get; init; }
     public required DateTimeOffset CreatedAtUtc { get; init; }
+    public required DateTimeOffset UpdatedAtUtc { get; init; }
 
     public static Job Create(
         Guid id,
@@ -35,6 +36,7 @@ public sealed record Job
             Source = source,
             CreatedByUserId = createdByUserId,
             CreatedAtUtc = createdAtUtc,
+            UpdatedAtUtc = createdAtUtc,
         };
     }
 }

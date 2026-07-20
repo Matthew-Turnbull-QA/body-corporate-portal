@@ -11,7 +11,8 @@ public sealed record JobDto(
     JobStatus Status,
     JobSource Source,
     Guid CreatedByUserId,
-    DateTimeOffset CreatedAtUtc)
+    DateTimeOffset CreatedAtUtc,
+    DateTimeOffset UpdatedAtUtc)
 {
     public static JobDto FromDomain(Job job, string propertyName) => new(
         job.Id,
@@ -22,5 +23,6 @@ public sealed record JobDto(
         job.Status,
         job.Source,
         job.CreatedByUserId,
-        job.CreatedAtUtc);
+        job.CreatedAtUtc,
+        job.UpdatedAtUtc);
 }
