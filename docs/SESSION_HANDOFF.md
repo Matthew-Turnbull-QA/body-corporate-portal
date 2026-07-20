@@ -7,12 +7,14 @@ after Phase 2 is well underway), feel free to delete this file; it's a handoff
 aid, not a permanent project doc. `docs/ARCHITECTURE.md` and
 `docs/MANUAL_TEST_PLAN.md` are the permanent ones.
 
-## Where things stand
+## Where things stand (as of 2026-07-20)
 
-**Phase 1 (Authentication + Users) is fully implemented, tested, and pushed to
-`main`** — 16 commits, working tree clean at time of writing. Both backend
-(`dotnet build && dotnet test`) and frontend (`npm run build && npm run lint`)
-are green.
+**Phase 1 (Authentication + Users) and the first two Phase 2 features
+(Properties, Jobs) are implemented, tested, and pushed to `main`** —
+working tree clean at time of writing (run `git log --oneline` for the full
+history rather than trusting a commit count here, since that goes stale
+immediately). Both backend (`dotnet build && dotnet test`, 42 tests) and
+frontend (`npm run build && npm run lint`) are green.
 
 What's built: Clean Architecture .NET backend (`Bcmp.Domain` / `Application` /
 `Infrastructure` / `Api`) with EF Core + Postgres, Google ID token → app-issued
@@ -69,12 +71,13 @@ instance while giving feedback, so the core flows are very likely fine.
 Worth an explicit pass through `/jobs` (add, sort, complete, assign) before
 treating it as done.
 
-**Phase 2+ (Properties, Jobs, Email integration, Assignment engine,
-Dashboards, AI enrichment)**: not started. See `docs/ARCHITECTURE.md`'s
-"Roadmap" section (carried over from the original plan) for the intended
-shape of each — Jobs in particular should go behind a pluggable `IJobSource`
-abstraction from day one so email-based creation slots in later without
-refactoring.
+**Phase 2 status**: Properties and Jobs are done (see above). Email
+integration, the full Assignment engine (routing/notifications — today
+there's only a manual per-job assign-to-trustee dropdown), and
+Dashboards/AI enrichment have not been started. See `docs/PROJECT_STATE.md`
+§"Suggested Phase 2 sequence" for the intended shape of each — that's the
+file that actually carries this roadmap (not `ARCHITECTURE.md`, despite an
+earlier version of this note pointing there).
 
 ## Getting it running locally
 

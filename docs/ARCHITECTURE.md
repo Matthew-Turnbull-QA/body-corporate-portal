@@ -1,7 +1,10 @@
-# Architecture decisions — Phase 1 (Auth + Users)
+# Architecture decisions
 
 This records the decisions with real trade-offs, so they aren't silently forgotten.
-See the top-level `README.md` for setup/run instructions.
+See the top-level `README.md` for setup/run instructions. Originally written for
+Phase 1 (Auth + Users); Phase 2 decisions are appended as they're made — see
+`docs/PROJECT_STATE.md` for what's actually built vs. planned, this file is just
+the "why" behind the choices.
 
 ## Solution layout
 
@@ -96,3 +99,44 @@ earlier `GetByIdAsync` in the same request) is still tracked on the same `DbCont
 `UserRepository.UpdateAsync` checks the change tracker for an existing entry and calls
 `CurrentValues.SetValues(...)` on it instead of blindly calling `Update()` — found by
 actually exercising disable-after-fetch through the live API, not by inspection.
+`JobRepository.UpdateAsync` uses the same pattern for the same reason.
+
+## Jobs domain (Phase 2)
+
+**Job creation goes through one method, parameterized by source, not a growing set
+of creation paths.** `JobService.CreateJobAsync` takes a `JobSource` enum (only
+`Manual` is produced today, by `JobsController`). The intended future email-ingestion
+worker becomes a second caller of that exact method with `Source.Email` — the
+alternative (a separate `CreateJobFromEmailAsync` or an `IJobSource` strategy
+interface) was rejected as premature: there's only one real source today, and a
+single parameterized method is trivially extended into a second caller later without
+needing to guess the abstraction's shape now.
+
+**Trustee assignment is Administrator-only, and validates role at write time.**
+`PATCH /api/jobs/{id}/assign` requires `RequireAdministrator` and
+`JobService.AssignTrusteeAsync` checks the target user's `Role == Trustee` before
+persisting (400 if not, 404 if the user doesn't exist at all) — an Administrator
+can't accidentally assign a job to another Administrator via this endpoint. This is
+deliberately just a manual per-job assignment, not the "Assignment engine" from the
+roadmap (no routing rules, no notifications); it exists so that engine has a `Job`
+field and an authorization shape to build on rather than starting from nothing.
+
+**`Job.UpdatedAtUtc` is a plain column bumped in the service layer, not an EF Core
+interceptor/trigger.** Every mutating `JobService` method (`UpdateStatusAsync`,
+`AssignTrusteeAsync`) sets it explicitly via the same `TimeProvider` used for
+`CreatedAtUtc`. Simpler than a global "touch updated-at on save" interceptor, and
+correct because this app has no other write paths to `Jobs` (no bulk update tooling,
+no admin SQL console) that could bypass the service layer and skip it. The migration
+that added the column (`AddJobUpdatedAtUtc`) backfills existing rows to
+`UpdatedAtUtc = CreatedAtUtc` via a `Sql()` call in `Up()`, rather than leaving
+EF's default-value fallback (`DateTimeOffset.MinValue`) in place for pre-existing
+data — found worth doing because this app was already running against live data
+(the local dev database) when the column was added, not a fresh schema.
+
+**Active/Completed is a status filter, not a separate table or flag.** The Jobs UI
+groups by `status !== Completed` (Active, shown first) vs. `status === Completed`
+(Completed, shown below) — meaning `Cancelled` jobs currently sit in the Active
+section alongside `Open`/`InProgress`. This was an implementation call in response
+to "keep active jobs at top, completed at the bottom," not an explicit spec — it
+reads literally correct (the user only defined "completed") but is worth confirming
+with a real user before assuming `Cancelled` shouldn't get its own treatment.

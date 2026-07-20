@@ -1,6 +1,6 @@
 # Project State and Handoff
 
-Last updated: 2026-07-19
+Last updated: 2026-07-20
 
 ## Current milestone
 
@@ -19,11 +19,19 @@ Phase 1 authentication and user-management work is complete and verified locally
 
 ## Current status summary
 
-The application is now in a good position to begin Phase 2 work. The foundation is stable: auth, user management, database access, and local development flow are all working.
+Phase 2 is underway: Properties and Jobs are both built, with Jobs having
+gone through one round of real user feedback (sortable table, last-updated
+tracking, active/completed split, trustee-assignment groundwork). The
+foundation remains stable: auth, user management, database access, and
+local dev flow all still work.
 
 ## Recommended next priority
 
-The next feature to build should be the core property-management domain, because it is a natural foundation for later work on jobs, assignments, and dashboards.
+Explicitly click-test the Jobs screen in a browser (see "Immediate next
+action" below) before building further on top of it. After that, Email
+integration is next in the Phase 2 sequence — though the Assignment engine
+now has a manual-assign foundation already in place if you'd rather build
+routing/notifications on top of that first instead.
 
 ### Suggested Phase 2 sequence
 
