@@ -19,8 +19,12 @@ export function AppLayout() {
   const location = useLocation();
   const isLoginPage = location.pathname === "/login";
 
+  if (isLoginPage) {
+    return <Outlet />;
+  }
+
   if (!user) {
-    return isLoginPage ? <Outlet /> : <div className="app-shell"><main className="app-shell__content"><Outlet /></main></div>;
+    return <div className="app-shell"><main className="app-shell__content"><Outlet /></main></div>;
   }
 
   return (

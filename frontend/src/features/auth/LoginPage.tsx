@@ -1,17 +1,23 @@
 import { GoogleLogin, type CredentialResponse } from "@react-oauth/google";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { ApiError } from "../../api/client";
 import { useAuth } from "./AuthContext";
 import heroImage from "../../../../docs/design_handoff_portal_ui/assets/Rietvlei.jpeg";
 
 export function LoginPage() {
-  const { signInWithGoogle } = useAuth();
+  const { user, signInWithGoogle } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [error, setError] = useState<string | null>(null);
 
   const redirectTo = (location.state as { from?: Location } | null)?.from?.pathname ?? "/";
+
+  useEffect(() => {
+    if (user) {
+      navigate(redirectTo, { replace: true });
+    }
+  }, [navigate, redirectTo, user]);
 
   async function handleSuccess(credential: CredentialResponse) {
     if (!credential.credential) {
@@ -34,9 +40,13 @@ export function LoginPage() {
     }
   }
 
+  if (user) {
+    return null;
+  }
+
   return (
     <section className="auth-page">
-      <div className="auth-hero" style={{ backgroundImage: `linear-gradient(90deg, rgba(15, 25, 20, 0.42), rgba(15, 25, 20, 0.2)), url(${heroImage})` }} />
+      <div className="auth-hero" style={{ backgroundImage: `url(${heroImage})` }} />
       <div className="auth-panel">
         <div className="auth-card">
           <div className="auth-logo">R</div>
