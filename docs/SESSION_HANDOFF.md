@@ -45,17 +45,29 @@ Also since the last handoff: a small UI polish pass landed on the login page
 intended page if already signed in, drops the hero image's dark overlay) —
 see the "Polish login page" commit.
 
-**Phase 2's Jobs domain is now implemented** (backend + frontend, see the
-"Add Jobs domain" and "Add Jobs list screen" commits) — see
-`docs/PROJECT_STATE.md` for the full picture, but the short version: `Job`
-entity with a `JobSource` parameter on creation so a future email-ingestion
-path is a new caller, not a refactor. Backend was live-verified against
-Postgres/API (curl + a hand-crafted admin JWT, all 37 unit tests green).
-**The frontend was not click-tested** — this local session had no
-headless-browser tooling, unlike the cloud sandbox that verified Phase 1's
-frontend. `npm run build`/`npm run lint` are green, which only proves it
-compiles, not that it works. First thing to do: open `/jobs` in a real
-browser and run through add-job + status-change.
+**Phase 2's Jobs domain is now implemented, plus a first feedback round**
+(see the "Add Jobs domain", "Add Jobs list screen", "Track
+Job.UpdatedAtUtc", "Add sortable columns...", and "Add assignable trustee
+field..." commits) — see `docs/PROJECT_STATE.md` for the full picture, but
+the short version: `Job` entity with a `JobSource` parameter on creation so
+a future email-ingestion path is a new caller, not a refactor; sortable
+columns on every field; an Active/Completed split (Completed = its own
+section at the bottom, everything else counts as Active including
+Cancelled — that grouping was my call, not explicitly specified, flag it if
+it should be different); and a nullable `AssignedTrusteeUserId` with an
+Administrator-only `PATCH /api/jobs/{id}/assign` endpoint as groundwork for
+the future Assignment engine phase (routing/notifications still not
+built — this is just "an admin can point a job at a trustee").
+
+Every backend increment was live-verified against Postgres/API (curl + a
+hand-crafted JWT for both Administrator and Trustee roles); 42/42 unit
+tests green. `npm run build`/`npm run lint` are green throughout, which
+only proves it compiles, not that it works — **the frontend has not been
+click-tested by Claude in a real browser** (no headless-browser tooling in
+this local session), though the user was actively driving the running dev
+instance while giving feedback, so the core flows are very likely fine.
+Worth an explicit pass through `/jobs` (add, sort, complete, assign) before
+treating it as done.
 
 **Phase 2+ (Properties, Jobs, Email integration, Assignment engine,
 Dashboards, AI enrichment)**: not started. See `docs/ARCHITECTURE.md`'s

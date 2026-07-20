@@ -4,7 +4,7 @@ Last updated: 2026-07-19
 
 ## Current milestone
 
-Phase 1 authentication and user-management work is complete and verified locally. The local OAuth sign-in flow is working end to end in a real browser. Phase 2's Jobs domain (backend + frontend) is now implemented; UI has not yet been click-tested in a browser (see "Immediate next action").
+Phase 1 authentication and user-management work is complete and verified locally. The local OAuth sign-in flow is working end to end in a real browser. Phase 2's Jobs domain (backend + frontend) is implemented and has since had a first round of real user feedback applied (sortable columns, last-updated tracking, active/completed split, assignable trustee field) — see the Jobs domain entry below for what's covered and what still needs a browser click-through pass.
 
 ## Completed work
 
@@ -29,19 +29,38 @@ The next feature to build should be the core property-management domain, because
 
 1. Properties domain — done.
 
-2. Jobs domain — done (2026-07-20). `Job` entity (title, description, status,
-   source, property FK), full Domain -> Application -> Infrastructure -> Api
-   layering matching Properties, `AddJobs` EF migration, and a frontend list
-   screen with an add-job dialog and an inline status dropdown. The pluggable
-   part: `JobService.CreateJobAsync` takes a `JobSource` parameter (only
-   `Manual` is produced today); a future email-ingestion worker becomes a
-   second caller of that same method with `Source.Email`, not a refactor of
-   it. Verified live against local Postgres/API (create, list with joined
-   property name, status transitions, 401/404 cases); 37/37 backend unit
-   tests pass. `npm run build`/`npm run lint` green. **Not yet click-tested
-   in a real browser** — no headless-browser tooling was available in this
-   local session (unlike the cloud sandbox that did Phase 1's frontend
-   verification), so this is unverified UI, not just untested code.
+2. Jobs domain — done (2026-07-20), plus a first feedback round the same day.
+   `Job` entity (title, description, status, source, property FK, plus
+   `UpdatedAtUtc` and a nullable `AssignedTrusteeUserId` added on feedback),
+   full Domain -> Application -> Infrastructure -> Api layering matching
+   Properties, three EF migrations (`AddJobs`, `AddJobUpdatedAtUtc`,
+   `AddJobAssignedTrustee`), and a frontend list screen with an add-job
+   dialog, sortable columns (click any header to toggle ascending/
+   descending), and two sections — Active on top, Completed below.
+
+   The pluggable part: `JobService.CreateJobAsync` takes a `JobSource`
+   parameter (only `Manual` is produced today); a future email-ingestion
+   worker becomes a second caller of that same method with `Source.Email`,
+   not a refactor of it.
+
+   Trustee assignment (new): `PATCH /api/jobs/{id}/assign`, Administrator-only,
+   validates the target user exists and is `Role.Trustee` (400 if not, 404 if
+   unknown). This is groundwork for Phase 2 item 4 (Assignment engine) below,
+   not that engine itself — right now it's a manual per-job dropdown, not
+   routing/notification logic.
+
+   Verified live against local Postgres/API for every increment (create,
+   list with joined property/trustee names, status transitions, assign/
+   unassign, the 400/401/403/404 cases); 42/42 backend unit tests pass.
+   `npm run build`/`npm run lint` green throughout. **The frontend has not
+   been click-tested by Claude in a real browser** — no headless-browser
+   tooling was available in this local session (unlike the cloud sandbox
+   that did Phase 1's frontend verification) — but the user has been
+   actively using the running dev instance while giving feedback (visible
+   via job/property data changing in Postgres during the session), so the
+   core flows are very likely fine; a full pass through
+   `docs/MANUAL_TEST_PLAN.md`-style checklist for Jobs still hasn't been
+   explicitly recorded.
 
 3. Email integration
    - Add inbound or outbound email handling for job creation and notifications
@@ -64,12 +83,16 @@ The next feature to build should be the core property-management domain, because
 
 ## Immediate next action
 
-1. Click through the Jobs screen in a real browser (`/jobs`: add a job against
-   a property, change its status via the dropdown, confirm the table
-   reflects it) and record the result here.
+1. Explicitly confirm the Jobs screen end to end in a real browser (add a
+   job, sort every column both directions, move a job to/from Completed and
+   watch it switch sections, assign/unassign a trustee as Administrator) and
+   record the result here — the groundwork is verified live at the API
+   level, but a real Trustee-role click-through (not just a hand-crafted
+   JWT) hasn't happened yet.
 2. Then move on to the Jobs domain's remaining gaps — job editing, and
    whatever the next Phase 2 item needs (see roadmap above: Email
-   integration next).
+   integration next; Assignment engine now has a manual-assign foundation
+   to build routing/notifications on top of).
 
 ## Update log
 
@@ -77,3 +100,4 @@ The next feature to build should be the core property-management domain, because
 - 2026-07-19: Properties domain, API, migration, and frontend screen implemented and verified
 - 2026-07-19: Login flow verified end to end; add-user and add-property flows confirmed working
 - 2026-07-20: Jobs domain implemented (backend fully live-verified; frontend built/linted but not yet click-tested in a browser)
+- 2026-07-20: Jobs feedback round: sortable columns, UpdatedAtUtc + "Last updated" column, Active/Completed split, and an Administrator-only assign-to-trustee field/endpoint (groundwork for the Assignment engine phase). All backend pieces live-verified; 42/42 backend tests pass.
