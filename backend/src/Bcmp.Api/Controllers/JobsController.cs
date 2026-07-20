@@ -1,4 +1,5 @@
 using System.IdentityModel.Tokens.Jwt;
+using Bcmp.Api.Authorization;
 using Bcmp.Application.Jobs;
 using Bcmp.Domain.Jobs;
 using Microsoft.AspNetCore.Authorization;
@@ -14,6 +15,8 @@ public sealed class JobsController(IJobService jobService) : ControllerBase
     public sealed record CreateJobRequest(Guid PropertyId, string Title, string? Description);
 
     public sealed record UpdateJobStatusRequest(JobStatus Status);
+
+    public sealed record AssignTrusteeRequest(Guid? TrusteeUserId);
 
     [HttpGet]
     public async Task<IActionResult> GetAll(CancellationToken cancellationToken)
@@ -46,6 +49,14 @@ public sealed class JobsController(IJobService jobService) : ControllerBase
     public async Task<IActionResult> UpdateStatus(Guid id, UpdateJobStatusRequest request, CancellationToken cancellationToken)
     {
         var updated = await jobService.UpdateStatusAsync(id, request.Status, cancellationToken);
+        return Ok(updated);
+    }
+
+    [HttpPatch("{id:guid}/assign")]
+    [Authorize(Policy = AuthorizationPolicyNames.RequireAdministrator)]
+    public async Task<IActionResult> AssignTrustee(Guid id, AssignTrusteeRequest request, CancellationToken cancellationToken)
+    {
+        var updated = await jobService.AssignTrusteeAsync(id, request.TrusteeUserId, cancellationToken);
         return Ok(updated);
     }
 

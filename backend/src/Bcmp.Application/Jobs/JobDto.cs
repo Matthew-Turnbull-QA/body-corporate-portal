@@ -12,9 +12,11 @@ public sealed record JobDto(
     JobSource Source,
     Guid CreatedByUserId,
     DateTimeOffset CreatedAtUtc,
-    DateTimeOffset UpdatedAtUtc)
+    DateTimeOffset UpdatedAtUtc,
+    Guid? AssignedTrusteeUserId,
+    string? AssignedTrusteeName)
 {
-    public static JobDto FromDomain(Job job, string propertyName) => new(
+    public static JobDto FromDomain(Job job, string propertyName, string? assignedTrusteeName = null) => new(
         job.Id,
         job.PropertyId,
         propertyName,
@@ -24,5 +26,7 @@ public sealed record JobDto(
         job.Source,
         job.CreatedByUserId,
         job.CreatedAtUtc,
-        job.UpdatedAtUtc);
+        job.UpdatedAtUtc,
+        job.AssignedTrusteeUserId,
+        job.AssignedTrusteeUserId is null ? null : assignedTrusteeName);
 }

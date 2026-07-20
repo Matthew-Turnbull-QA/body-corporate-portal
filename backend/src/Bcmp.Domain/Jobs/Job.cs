@@ -11,6 +11,7 @@ public sealed record Job
     public required Guid CreatedByUserId { get; init; }
     public required DateTimeOffset CreatedAtUtc { get; init; }
     public required DateTimeOffset UpdatedAtUtc { get; init; }
+    public Guid? AssignedTrusteeUserId { get; init; }
 
     public static Job Create(
         Guid id,

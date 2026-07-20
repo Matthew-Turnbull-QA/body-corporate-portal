@@ -22,4 +22,11 @@ public interface IJobService
         CancellationToken cancellationToken = default);
 
     Task<JobDto> UpdateStatusAsync(Guid id, JobStatus status, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Assigns (or, with a null <paramref name="trusteeUserId"/>, clears) the job's assigned trustee.
+    /// </summary>
+    /// <exception cref="KeyNotFoundException">No job or trustee with the given id exists.</exception>
+    /// <exception cref="ArgumentException"><paramref name="trusteeUserId"/> refers to a user who is not a Trustee.</exception>
+    Task<JobDto> AssignTrusteeAsync(Guid id, Guid? trusteeUserId, CancellationToken cancellationToken = default);
 }

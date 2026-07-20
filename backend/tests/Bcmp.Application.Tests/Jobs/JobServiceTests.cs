@@ -1,8 +1,10 @@
 using Bcmp.Application.Jobs;
 using Bcmp.Application.Properties;
 using Bcmp.Application.Tests.TestDoubles;
+using Bcmp.Application.Users;
 using Bcmp.Domain.Jobs;
 using Bcmp.Domain.Properties;
+using Bcmp.Domain.Users;
 using FluentAssertions;
 using NSubstitute;
 
@@ -15,6 +17,7 @@ public class JobServiceTests
 
     private IJobRepository _jobRepository = null!;
     private IPropertyRepository _propertyRepository = null!;
+    private IUserRepository _userRepository = null!;
     private JobService _sut = null!;
 
     [SetUp]
@@ -22,11 +25,18 @@ public class JobServiceTests
     {
         _jobRepository = Substitute.For<IJobRepository>();
         _propertyRepository = Substitute.For<IPropertyRepository>();
-        _sut = new JobService(_jobRepository, _propertyRepository, new FixedTimeProvider(Now));
+        _userRepository = Substitute.For<IUserRepository>();
+        _sut = new JobService(_jobRepository, _propertyRepository, _userRepository, new FixedTimeProvider(Now));
     }
 
     private static Property MakeProperty(Guid? id = null) =>
         Property.Create(id ?? Guid.NewGuid(), "Sunset Villas", "12 Ocean Drive", "North Shore", "NSW", "2000", Now);
+
+    private static User MakeTrustee(Guid? id = null) =>
+        User.Create(id ?? Guid.NewGuid(), "trustee@example.com", "Terry Trustee", UserRole.Trustee, Now);
+
+    private static User MakeAdmin(Guid? id = null) =>
+        User.Create(id ?? Guid.NewGuid(), "admin@example.com", "Alex Admin", UserRole.Administrator, Now);
 
     [Test]
     public async Task CreateJobAsync_WithKnownProperty_CreatesOpenJob()
@@ -40,6 +50,7 @@ public class JobServiceTests
         result.Title.Should().Be("Leaking roof");
         result.Status.Should().Be(JobStatus.Open);
         result.PropertyName.Should().Be("Sunset Villas");
+        result.AssignedTrusteeUserId.Should().BeNull();
         await _jobRepository.Received(1).AddAsync(Arg.Is<Job>(j => j.Title == "Leaking roof" && j.PropertyId == property.Id), Arg.Any<CancellationToken>());
     }
 
@@ -60,7 +71,7 @@ public class JobServiceTests
         var property = MakeProperty();
         var job = Job.Create(Guid.NewGuid(), property.Id, "Leaking roof", "Description", JobSource.Manual, Guid.NewGuid(), Now);
         var later = Now.AddDays(1);
-        var sut = new JobService(_jobRepository, _propertyRepository, new FixedTimeProvider(later));
+        var sut = new JobService(_jobRepository, _propertyRepository, _userRepository, new FixedTimeProvider(later));
         _jobRepository.GetByIdAsync(job.Id).Returns(job);
         _propertyRepository.GetByIdAsync(property.Id).Returns(property);
 
@@ -88,9 +99,81 @@ public class JobServiceTests
         var job = Job.Create(Guid.NewGuid(), property.Id, "Leaking roof", "Description", JobSource.Manual, Guid.NewGuid(), Now);
         _jobRepository.GetAllAsync().Returns([job]);
         _propertyRepository.GetAllAsync().Returns([property]);
+        _userRepository.GetAllAsync().Returns([]);
 
         var result = await _sut.GetAllAsync();
 
         result.Should().ContainSingle(j => j.Id == job.Id && j.PropertyName == "Sunset Villas");
+    }
+
+    [Test]
+    public async Task AssignTrusteeAsync_WithKnownTrustee_AssignsAndReturnsName()
+    {
+        var property = MakeProperty();
+        var trustee = MakeTrustee();
+        var job = Job.Create(Guid.NewGuid(), property.Id, "Leaking roof", "Description", JobSource.Manual, Guid.NewGuid(), Now);
+        _jobRepository.GetByIdAsync(job.Id).Returns(job);
+        _propertyRepository.GetByIdAsync(property.Id).Returns(property);
+        _userRepository.GetByIdAsync(trustee.Id).Returns(trustee);
+
+        var result = await _sut.AssignTrusteeAsync(job.Id, trustee.Id);
+
+        result.AssignedTrusteeUserId.Should().Be(trustee.Id);
+        result.AssignedTrusteeName.Should().Be("Terry Trustee");
+        await _jobRepository.Received(1).UpdateAsync(Arg.Is<Job>(j => j.AssignedTrusteeUserId == trustee.Id), Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task AssignTrusteeAsync_WithNull_ClearsAssignment()
+    {
+        var property = MakeProperty();
+        var trustee = MakeTrustee();
+        var job = Job.Create(Guid.NewGuid(), property.Id, "Leaking roof", "Description", JobSource.Manual, Guid.NewGuid(), Now) with { AssignedTrusteeUserId = trustee.Id };
+        _jobRepository.GetByIdAsync(job.Id).Returns(job);
+        _propertyRepository.GetByIdAsync(property.Id).Returns(property);
+
+        var result = await _sut.AssignTrusteeAsync(job.Id, null);
+
+        result.AssignedTrusteeUserId.Should().BeNull();
+        result.AssignedTrusteeName.Should().BeNull();
+        await _jobRepository.Received(1).UpdateAsync(Arg.Is<Job>(j => j.AssignedTrusteeUserId == null), Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task AssignTrusteeAsync_WithNonTrusteeUser_Throws()
+    {
+        var property = MakeProperty();
+        var admin = MakeAdmin();
+        var job = Job.Create(Guid.NewGuid(), property.Id, "Leaking roof", "Description", JobSource.Manual, Guid.NewGuid(), Now);
+        _jobRepository.GetByIdAsync(job.Id).Returns(job);
+        _userRepository.GetByIdAsync(admin.Id).Returns(admin);
+
+        var act = async () => await _sut.AssignTrusteeAsync(job.Id, admin.Id);
+
+        await act.Should().ThrowAsync<ArgumentException>();
+        await _jobRepository.DidNotReceive().UpdateAsync(Arg.Any<Job>(), Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task AssignTrusteeAsync_WithUnknownUser_Throws()
+    {
+        var property = MakeProperty();
+        var job = Job.Create(Guid.NewGuid(), property.Id, "Leaking roof", "Description", JobSource.Manual, Guid.NewGuid(), Now);
+        _jobRepository.GetByIdAsync(job.Id).Returns(job);
+        _userRepository.GetByIdAsync(Arg.Any<Guid>()).Returns((User?)null);
+
+        var act = async () => await _sut.AssignTrusteeAsync(job.Id, Guid.NewGuid());
+
+        await act.Should().ThrowAsync<KeyNotFoundException>();
+    }
+
+    [Test]
+    public async Task AssignTrusteeAsync_UnknownJob_Throws()
+    {
+        _jobRepository.GetByIdAsync(Arg.Any<Guid>()).Returns((Job?)null);
+
+        var act = async () => await _sut.AssignTrusteeAsync(Guid.NewGuid(), Guid.NewGuid());
+
+        await act.Should().ThrowAsync<KeyNotFoundException>();
     }
 }

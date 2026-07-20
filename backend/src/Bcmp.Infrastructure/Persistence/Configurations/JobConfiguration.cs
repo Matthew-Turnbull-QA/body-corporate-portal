@@ -43,5 +43,9 @@ public sealed class JobConfiguration : IEntityTypeConfiguration<Job>
 
         builder.Property(j => j.UpdatedAtUtc)
             .IsRequired();
+
+        builder.Property(j => j.AssignedTrusteeUserId);
+
+        builder.HasIndex(j => j.AssignedTrusteeUserId);
     }
 }

@@ -24,6 +24,7 @@ public class JobTests
         job.CreatedByUserId.Should().Be(createdByUserId);
         job.CreatedAtUtc.Should().Be(CreatedAtUtc);
         job.UpdatedAtUtc.Should().Be(CreatedAtUtc);
+        job.AssignedTrusteeUserId.Should().BeNull();
     }
 
     [Test]
