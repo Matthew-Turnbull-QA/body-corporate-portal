@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
+import { useAuth } from "../auth/AuthContext";
 import { useProperties } from "../properties/useProperties";
-import { useCreateJob, useJobs, useUpdateJobStatus } from "./useJobs";
+import { useUsers } from "../users/useUsers";
+import { useAssignTrustee, useCreateJob, useJobs, useUpdateJobStatus } from "./useJobs";
 import type { JobDto, JobStatus } from "../../api/jobs";
 
 const emptyForm = {
@@ -25,13 +27,14 @@ const statusChipClass: Record<JobStatus, string> = {
   Cancelled: "status-chip--cancelled",
 };
 
-type SortKey = "title" | "propertyName" | "status" | "createdAtUtc" | "updatedAtUtc";
+type SortKey = "title" | "propertyName" | "status" | "createdAtUtc" | "updatedAtUtc" | "assignedTrusteeName";
 type SortDirection = "asc" | "desc";
 
 const columns: { key: SortKey; label: string }[] = [
   { key: "title", label: "Title" },
   { key: "propertyName", label: "Property" },
   { key: "status", label: "Status" },
+  { key: "assignedTrusteeName", label: "Assigned to" },
   { key: "createdAtUtc", label: "Created" },
   { key: "updatedAtUtc", label: "Last updated" },
 ];
@@ -44,15 +47,20 @@ function sortJobs(jobs: JobDto[], sortKey: SortKey, sortDirection: SortDirection
       return (new Date(a[sortKey]).getTime() - new Date(b[sortKey]).getTime()) * factor;
     }
 
-    return a[sortKey].localeCompare(b[sortKey]) * factor;
+    return (a[sortKey] ?? "").localeCompare(b[sortKey] ?? "") * factor;
   });
 }
 
 export function JobsListPage() {
+  const { user } = useAuth();
+  const isAdmin = user?.role === "Administrator";
   const { data: jobs, isLoading, error } = useJobs();
   const { data: properties } = useProperties();
+  const { data: users } = useUsers(isAdmin);
+  const trustees = users?.filter((u) => u.role === "Trustee" && u.isEnabled) ?? [];
   const createJob = useCreateJob();
   const updateJobStatus = useUpdateJobStatus();
+  const assignTrustee = useAssignTrustee();
   const [isAdding, setIsAdding] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [sortKey, setSortKey] = useState<SortKey>("createdAtUtc");
@@ -133,6 +141,25 @@ export function JobsListPage() {
         <td>{job.propertyName}</td>
         <td>
           <span className={`status-chip ${statusChipClass[job.status]}`}>{statusLabels[job.status]}</span>
+        </td>
+        <td>
+          {isAdmin ? (
+            <select
+              value={job.assignedTrusteeUserId ?? ""}
+              onChange={(event) =>
+                assignTrustee.mutate({ id: job.id, trusteeUserId: event.target.value || null })
+              }
+            >
+              <option value="">Unassigned</option>
+              {trustees.map((trustee) => (
+                <option key={trustee.id} value={trustee.id}>
+                  {trustee.displayName}
+                </option>
+              ))}
+            </select>
+          ) : (
+            (job.assignedTrusteeName ?? "Unassigned")
+          )}
         </td>
         <td>{new Date(job.createdAtUtc).toLocaleString()}</td>
         <td>{new Date(job.updatedAtUtc).toLocaleString()}</td>

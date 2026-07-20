@@ -14,6 +14,8 @@ export interface JobDto {
   createdByUserId: string;
   createdAtUtc: string;
   updatedAtUtc: string;
+  assignedTrusteeUserId: string | null;
+  assignedTrusteeName: string | null;
 }
 
 export interface CreateJobRequest {
@@ -34,5 +36,12 @@ export function updateJobStatus(id: string, status: JobStatus) {
   return apiFetch<JobDto>(`/api/jobs/${id}/status`, {
     method: "PATCH",
     body: JSON.stringify({ status }),
+  });
+}
+
+export function assignTrustee(id: string, trusteeUserId: string | null) {
+  return apiFetch<JobDto>(`/api/jobs/${id}/assign`, {
+    method: "PATCH",
+    body: JSON.stringify({ trusteeUserId }),
   });
 }

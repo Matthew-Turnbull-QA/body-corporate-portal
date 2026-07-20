@@ -4,8 +4,8 @@ import type { CreateUserRequest, UpdateUserRequest } from "../../api/users";
 
 const usersQueryKey = ["users"] as const;
 
-export function useUsers() {
-  return useQuery({ queryKey: usersQueryKey, queryFn: usersApi.listUsers });
+export function useUsers(enabled = true) {
+  return useQuery({ queryKey: usersQueryKey, queryFn: usersApi.listUsers, enabled });
 }
 
 export function useCreateUser() {

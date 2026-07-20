@@ -25,3 +25,13 @@ export function useUpdateJobStatus() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: jobsQueryKey }),
   });
 }
+
+export function useAssignTrustee() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, trusteeUserId }: { id: string; trusteeUserId: string | null }) =>
+      jobsApi.assignTrustee(id, trusteeUserId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: jobsQueryKey }),
+  });
+}
