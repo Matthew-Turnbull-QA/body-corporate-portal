@@ -13,6 +13,7 @@ export interface JobDto {
   source: JobSource;
   createdByUserId: string;
   createdAtUtc: string;
+  updatedAtUtc: string;
 }
 
 export interface CreateJobRequest {

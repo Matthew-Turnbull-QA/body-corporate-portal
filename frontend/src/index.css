@@ -278,6 +278,55 @@ tbody tr:nth-child(even) {
   background: var(--table-row-alt);
 }
 
+.table-empty-cell {
+  padding: 24px 20px !important;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.table-section-title {
+  margin: 24px 0 10px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.table-section-title:first-of-type {
+  margin-top: 0;
+}
+
+.table-sort-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+}
+
+.table-sort-button:hover,
+.table-sort-button:focus-visible {
+  color: var(--accent);
+}
+
+.table-sort-button__arrow {
+  font-size: 10px;
+  opacity: 0.4;
+}
+
+.table-sort-button--active .table-sort-button__arrow {
+  opacity: 1;
+  color: var(--accent);
+}
+
 .table-actions select {
   border: 1px solid var(--border);
   border-radius: 8px;

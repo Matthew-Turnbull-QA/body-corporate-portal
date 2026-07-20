@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useProperties } from "../properties/useProperties";
 import { useCreateJob, useJobs, useUpdateJobStatus } from "./useJobs";
-import type { JobStatus } from "../../api/jobs";
+import type { JobDto, JobStatus } from "../../api/jobs";
 
 const emptyForm = {
   propertyId: "",
@@ -25,6 +25,29 @@ const statusChipClass: Record<JobStatus, string> = {
   Cancelled: "status-chip--cancelled",
 };
 
+type SortKey = "title" | "propertyName" | "status" | "createdAtUtc" | "updatedAtUtc";
+type SortDirection = "asc" | "desc";
+
+const columns: { key: SortKey; label: string }[] = [
+  { key: "title", label: "Title" },
+  { key: "propertyName", label: "Property" },
+  { key: "status", label: "Status" },
+  { key: "createdAtUtc", label: "Created" },
+  { key: "updatedAtUtc", label: "Last updated" },
+];
+
+function sortJobs(jobs: JobDto[], sortKey: SortKey, sortDirection: SortDirection): JobDto[] {
+  const factor = sortDirection === "asc" ? 1 : -1;
+
+  return [...jobs].sort((a, b) => {
+    if (sortKey === "createdAtUtc" || sortKey === "updatedAtUtc") {
+      return (new Date(a[sortKey]).getTime() - new Date(b[sortKey]).getTime()) * factor;
+    }
+
+    return a[sortKey].localeCompare(b[sortKey]) * factor;
+  });
+}
+
 export function JobsListPage() {
   const { data: jobs, isLoading, error } = useJobs();
   const { data: properties } = useProperties();
@@ -32,6 +55,8 @@ export function JobsListPage() {
   const updateJobStatus = useUpdateJobStatus();
   const [isAdding, setIsAdding] = useState(false);
   const [form, setForm] = useState(emptyForm);
+  const [sortKey, setSortKey] = useState<SortKey>("createdAtUtc");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
 
   useEffect(() => {
     if (!isAdding) {
@@ -48,11 +73,85 @@ export function JobsListPage() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [isAdding]);
 
+  function toggleSort(key: SortKey) {
+    if (key === sortKey) {
+      setSortDirection((current) => (current === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDirection("asc");
+    }
+  }
+
+  const activeJobs = useMemo(
+    () => sortJobs(jobs?.filter((job) => job.status !== "Completed") ?? [], sortKey, sortDirection),
+    [jobs, sortKey, sortDirection],
+  );
+  const completedJobs = useMemo(
+    () => sortJobs(jobs?.filter((job) => job.status === "Completed") ?? [], sortKey, sortDirection),
+    [jobs, sortKey, sortDirection],
+  );
+
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     await createJob.mutateAsync(form);
     setForm(emptyForm);
     setIsAdding(false);
+  }
+
+  function renderHeaderRow() {
+    return (
+      <tr>
+        {columns.map((column) => {
+          const isActive = column.key === sortKey;
+          const ariaSort = isActive ? (sortDirection === "asc" ? "ascending" : "descending") : "none";
+          const arrow = isActive ? (sortDirection === "asc" ? "▲" : "▼") : "⇅";
+
+          return (
+            <th key={column.key} aria-sort={ariaSort}>
+              <button
+                type="button"
+                className={`table-sort-button ${isActive ? "table-sort-button--active" : ""}`}
+                onClick={() => toggleSort(column.key)}
+              >
+                {column.label}
+                <span className="table-sort-button__arrow" aria-hidden="true">
+                  {arrow}
+                </span>
+              </button>
+            </th>
+          );
+        })}
+        <th></th>
+      </tr>
+    );
+  }
+
+  function renderJobRow(job: JobDto) {
+    return (
+      <tr key={job.id}>
+        <td>{job.title}</td>
+        <td>{job.propertyName}</td>
+        <td>
+          <span className={`status-chip ${statusChipClass[job.status]}`}>{statusLabels[job.status]}</span>
+        </td>
+        <td>{new Date(job.createdAtUtc).toLocaleString()}</td>
+        <td>{new Date(job.updatedAtUtc).toLocaleString()}</td>
+        <td>
+          <div className="table-actions">
+            <select
+              value={job.status}
+              onChange={(event) => updateJobStatus.mutate({ id: job.id, status: event.target.value as JobStatus })}
+            >
+              {statusOptions.map((status) => (
+                <option key={status} value={status}>
+                  {statusLabels[status]}
+                </option>
+              ))}
+            </select>
+          </div>
+        </td>
+      </tr>
+    );
   }
 
   return (
@@ -79,47 +178,43 @@ export function JobsListPage() {
       )}
 
       {!isLoading && !error && (
-        <div className="table-card">
-          <table>
-            <thead>
-              <tr>
-                <th>Title</th>
-                <th>Property</th>
-                <th>Status</th>
-                <th>Created</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {jobs?.map((job) => (
-                <tr key={job.id}>
-                  <td>{job.title}</td>
-                  <td>{job.propertyName}</td>
-                  <td>
-                    <span className={`status-chip ${statusChipClass[job.status]}`}>{statusLabels[job.status]}</span>
-                  </td>
-                  <td>{new Date(job.createdAtUtc).toLocaleString()}</td>
-                  <td>
-                    <div className="table-actions">
-                      <select
-                        value={job.status}
-                        onChange={(event) =>
-                          updateJobStatus.mutate({ id: job.id, status: event.target.value as JobStatus })
-                        }
-                      >
-                        {statusOptions.map((status) => (
-                          <option key={status} value={status}>
-                            {statusLabels[status]}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <>
+          <h3 className="table-section-title">Active</h3>
+          <div className="table-card">
+            <table>
+              <thead>{renderHeaderRow()}</thead>
+              <tbody>
+                {activeJobs.length === 0 ? (
+                  <tr>
+                    <td colSpan={columns.length + 1} className="table-empty-cell">
+                      No active jobs.
+                    </td>
+                  </tr>
+                ) : (
+                  activeJobs.map(renderJobRow)
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          <h3 className="table-section-title">Completed</h3>
+          <div className="table-card">
+            <table>
+              <thead>{renderHeaderRow()}</thead>
+              <tbody>
+                {completedJobs.length === 0 ? (
+                  <tr>
+                    <td colSpan={columns.length + 1} className="table-empty-cell">
+                      No completed jobs yet.
+                    </td>
+                  </tr>
+                ) : (
+                  completedJobs.map(renderJobRow)
+                )}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
 
       {isAdding && (
