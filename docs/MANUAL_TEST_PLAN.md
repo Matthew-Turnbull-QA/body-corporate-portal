@@ -29,7 +29,7 @@ actual Google consent screen — it requires a live Google Cloud OAuth Client ID
 real Google account clicking through Google's own UI. Once you have a Client ID (see
 README for where to set it), run through this checklist yourself:
 
-1. **Bootstrap admin can sign in.**
+1. **Bootstrap admin can sign in.** — ✅ **PASS (2026-07-20)**
    Sign in with the Google account matching `Bootstrap:AdminEmail`. Expect: redirected
    to the home page, header shows your name and "(Administrator)", `/users` link is visible.
 
@@ -56,5 +56,9 @@ README for where to set it), run through this checklist yourself:
    real boundary — the actual enforcement is server-side (`RequireAdministrator` policy
    on every admin endpoint), which was already verified with a Trustee-role JWT getting
    `403` from the API directly.
+
+Steps 2–5 (unknown-account rejection, second-user add + sign-in, disabled-user
+rejection, Trustee route guard) are still outstanding — need a second real
+Google test-user account to exercise.
 
 Record the outcome of each step here (pass/fail + date) once you've run through it.

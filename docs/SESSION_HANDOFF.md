@@ -30,15 +30,20 @@ internalizing before touching this code so you don't reintroduce them.
 
 ## What's NOT done yet
 
-**The one thing left from Phase 1**: a real human clicking through Google's
-actual consent screen. The cloud sandbox that did all the above work has no
-way to expose `localhost` to a browser, so this was never actually
-click-tested — everything up to and including the Google handshake was
-verified with hand-crafted JWTs and a headless browser with injected auth
-state (see `docs/ARCHITECTURE.md` and `docs/MANUAL_TEST_PLAN.md` for exactly
-what was and wasn't covered that way). **This is likely your first task**:
-run the app locally (see below) and work through the checklist in
-`docs/MANUAL_TEST_PLAN.md` §"What still needs a human, with a real Google account".
+**Google OAuth click-testing, partially done.** A real human has now signed
+in through the actual Google consent screen as the bootstrap admin and
+confirmed it works end-to-end (step 1 of the checklist in
+`docs/MANUAL_TEST_PLAN.md` §"What still needs a human, with a real Google
+account", verified 2026-07-20). Steps 2–5 of that checklist — unknown-account
+rejection, adding a second user who then signs in, a disabled user being
+rejected on next login, and the Trustee route guard — are still outstanding;
+they need a second real Google test-user account to exercise. Worth picking
+up next if you want full confidence before moving on to Phase 2.
+
+Also since the last handoff: a small UI polish pass landed on the login page
+(avoids an app-shell flash before redirecting, bounces `/login` to the
+intended page if already signed in, drops the hero image's dark overlay) —
+see the "Polish login page" commit.
 
 **Phase 2+ (Properties, Jobs, Email integration, Assignment engine,
 Dashboards, AI enrichment)**: not started. See `docs/ARCHITECTURE.md`'s
