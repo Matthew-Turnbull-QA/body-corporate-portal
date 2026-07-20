@@ -12,6 +12,8 @@
   --success-chip-text: #1f7a4d;
   --neutral-chip-bg: #f1f2f4;
   --neutral-chip-text: #64748b;
+  --warning-chip-bg: #fdf1e0;
+  --warning-chip-text: #a6650d;
   --error-bg: #fdeaea;
   --error-border: #f3c6c6;
   --error-text: #b3261e;
@@ -276,6 +278,16 @@ tbody tr:nth-child(even) {
   background: var(--table-row-alt);
 }
 
+.table-actions select {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: white;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 600;
+}
+
 .table-actions {
   display: flex;
   justify-content: flex-end;
@@ -301,6 +313,26 @@ tbody tr:nth-child(even) {
 .status-chip--disabled {
   background: var(--neutral-chip-bg);
   color: var(--neutral-chip-text);
+}
+
+.status-chip--open {
+  background: var(--neutral-chip-bg);
+  color: var(--neutral-chip-text);
+}
+
+.status-chip--inprogress {
+  background: var(--warning-chip-bg);
+  color: var(--warning-chip-text);
+}
+
+.status-chip--completed {
+  background: var(--success-chip-bg);
+  color: var(--success-chip-text);
+}
+
+.status-chip--cancelled {
+  background: var(--error-bg);
+  color: var(--error-text);
 }
 
 .button {
@@ -481,18 +513,21 @@ tbody tr:nth-child(even) {
 }
 
 .dialog__field input,
-.dialog__field select {
+.dialog__field select,
+.dialog__field textarea {
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 10px 12px;
   background: white;
   color: var(--text-primary);
   outline: none;
+  font-family: inherit;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .dialog__field input:focus,
-.dialog__field select:focus {
+.dialog__field select:focus,
+.dialog__field textarea:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px rgba(47, 125, 70, 0.16);
 }

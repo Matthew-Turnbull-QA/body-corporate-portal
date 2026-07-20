@@ -34,6 +34,9 @@ export function AppLayout() {
           <div className="app-shell__logo">R</div>
           <span className="app-shell__brand-name">Rietvlei Body Corp</span>
           <nav className="app-shell__nav" aria-label="Primary">
+            <NavLink className={({ isActive }) => `app-shell__nav-link ${isActive ? "active" : ""}`} to="/jobs">
+              Jobs
+            </NavLink>
             <NavLink className={({ isActive }) => `app-shell__nav-link ${isActive ? "active" : ""}`} to="/properties">
               Properties
             </NavLink>
