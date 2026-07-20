@@ -1,4 +1,5 @@
 using Bcmp.Application.Auth;
+using Bcmp.Application.Jobs;
 using Bcmp.Application.Properties;
 using Bcmp.Application.Users;
 using Bcmp.Infrastructure.Auth;
@@ -20,6 +21,7 @@ public static class DependencyInjection
         services.AddDbContext<AppDbContext>(options => options.UseNpgsql(connectionString));
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IPropertyRepository, PropertyRepository>();
+        services.AddScoped<IJobRepository, JobRepository>();
 
         services.AddOptions<GoogleAuthOptions>()
             .Bind(configuration.GetSection(GoogleAuthOptions.SectionName))
