@@ -16,9 +16,19 @@ public class UserTests
         user.Email.Should().Be("trustee@example.com");
         user.DisplayName.Should().Be("Jane Trustee");
         user.Role.Should().Be(UserRole.Trustee);
+        user.Permissions.Should().Be(UserPermission.LoadJobs | UserPermission.CreateJobs | UserPermission.UpdateJobStatus);
+        user.PasswordHash.Should().BeNull();
         user.IsEnabled.Should().BeTrue();
         user.CreatedAtUtc.Should().Be(CreatedAtUtc);
         user.LastLoginAtUtc.Should().BeNull();
+    }
+
+    [Test]
+    public void Create_WithAdministratorRole_GetsDefaultAdministratorJobPermissions()
+    {
+        var user = User.Create(Guid.NewGuid(), "Admin@Example.com", "Admin", UserRole.Administrator, CreatedAtUtc);
+
+        user.Permissions.Should().Be(UserPermission.LoadJobs | UserPermission.CreateJobs | UserPermission.UpdateJobStatus | UserPermission.AssignJobs);
     }
 
     [TestCase("")]

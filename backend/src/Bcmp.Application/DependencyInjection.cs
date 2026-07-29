@@ -1,3 +1,4 @@
+using Bcmp.Application.AccessRequests;
 using Bcmp.Application.Auth;
 using Bcmp.Application.Jobs;
 using Bcmp.Application.Properties;
@@ -15,6 +16,7 @@ public static class DependencyInjection
         services.AddScoped<IPropertyService, PropertyService>();
         services.AddScoped<IJobService, JobService>();
         services.AddScoped<IAuthenticationService, AuthenticationService>();
+        services.AddScoped<IAccessRequestService, AccessRequestService>();
 
         return services;
     }

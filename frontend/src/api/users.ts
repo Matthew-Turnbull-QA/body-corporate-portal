@@ -1,19 +1,27 @@
-import type { UserDto, UserRole } from "../features/auth/types";
+import type { UserDto, UserPermission, UserRole } from "../features/auth/types";
 import { apiFetch } from "./client";
 
 export interface CreateUserRequest {
   email: string;
   displayName: string;
   role: UserRole;
+  permissions: UserPermission[];
+  password?: string | null;
 }
 
 export interface UpdateUserRequest {
   displayName: string;
   role: UserRole;
+  permissions: UserPermission[];
+  newPassword?: string | null;
 }
 
 export function listUsers() {
   return apiFetch<UserDto[]>("/api/users");
+}
+
+export function listAssignableTrustees() {
+  return apiFetch<UserDto[]>("/api/users/assignable-trustees");
 }
 
 export function createUser(request: CreateUserRequest) {

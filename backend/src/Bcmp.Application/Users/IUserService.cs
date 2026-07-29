@@ -13,6 +13,8 @@ public interface IUserService
         string email,
         string displayName,
         UserRole role,
+        IReadOnlyCollection<UserPermission>? permissions,
+        string? password,
         Guid? createdByUserId,
         CancellationToken cancellationToken = default);
 
@@ -22,7 +24,11 @@ public interface IUserService
         Guid id,
         string displayName,
         UserRole role,
+        IReadOnlyCollection<UserPermission>? permissions,
+        string? newPassword,
         CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<UserDto>> GetAssignableTrusteesAsync(CancellationToken cancellationToken = default);
 
     /// <exception cref="KeyNotFoundException">No user with this id exists.</exception>
     Task EnableUserAsync(Guid id, CancellationToken cancellationToken = default);

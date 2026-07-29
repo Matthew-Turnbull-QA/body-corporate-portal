@@ -1,5 +1,7 @@
 import { createBrowserRouter } from "react-router-dom";
 import { LoginPage } from "../features/auth/LoginPage";
+import { RequestAccessPage } from "../features/accessRequests/RequestAccessPage";
+import { AccessRequestsPage } from "../features/accessRequests/AccessRequestsPage";
 import { RequireAuth } from "../features/auth/RequireAuth";
 import { RequireRole } from "../features/auth/RequireRole";
 import { UsersListPage } from "../features/users/UsersListPage";
@@ -14,6 +16,7 @@ export const router = createBrowserRouter([
     element: <AppLayout />,
     children: [
       { path: "login", element: <LoginPage /> },
+      { path: "request-access", element: <RequestAccessPage /> },
       {
         element: <RequireAuth />,
         children: [
@@ -22,7 +25,10 @@ export const router = createBrowserRouter([
           { path: "jobs", element: <JobsListPage /> },
           {
             element: <RequireRole role="Administrator" />,
-            children: [{ path: "users", element: <UsersListPage /> }],
+            children: [
+              { path: "users", element: <UsersListPage /> },
+              { path: "access-requests", element: <AccessRequestsPage /> },
+            ],
           },
         ],
       },

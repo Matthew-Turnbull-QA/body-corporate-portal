@@ -69,6 +69,14 @@ try
             policy.RequireRole(nameof(UserRole.Administrator)));
         options.AddPolicy(AuthorizationPolicyNames.RequireTrustee, policy =>
             policy.RequireRole(nameof(UserRole.Administrator), nameof(UserRole.Trustee)));
+        options.AddPolicy(AuthorizationPolicyNames.RequireJobLoad, policy =>
+            policy.RequireClaim("permission", nameof(UserPermission.LoadJobs)));
+        options.AddPolicy(AuthorizationPolicyNames.RequireJobCreate, policy =>
+            policy.RequireClaim("permission", nameof(UserPermission.CreateJobs)));
+        options.AddPolicy(AuthorizationPolicyNames.RequireJobStatusUpdate, policy =>
+            policy.RequireClaim("permission", nameof(UserPermission.UpdateJobStatus)));
+        options.AddPolicy(AuthorizationPolicyNames.RequireJobAssign, policy =>
+            policy.RequireClaim("permission", nameof(UserPermission.AssignJobs)));
     });
 
     const string frontendCorsPolicy = "Frontend";

@@ -1,8 +1,9 @@
+using Bcmp.Application.Auth;
 using Bcmp.Domain.Users;
 
 namespace Bcmp.Application.Users;
 
-public sealed class UserService(IUserRepository userRepository, TimeProvider timeProvider) : IUserService
+public sealed class UserService(IUserRepository userRepository, IPasswordHasher passwordHasher, TimeProvider timeProvider) : IUserService
 {
     public async Task<IReadOnlyList<UserDto>> GetAllAsync(CancellationToken cancellationToken = default)
     {
@@ -20,6 +21,8 @@ public sealed class UserService(IUserRepository userRepository, TimeProvider tim
         string email,
         string displayName,
         UserRole role,
+        IReadOnlyCollection<UserPermission>? permissions,
+        string? password,
         Guid? createdByUserId,
         CancellationToken cancellationToken = default)
     {
@@ -30,7 +33,16 @@ public sealed class UserService(IUserRepository userRepository, TimeProvider tim
             throw new InvalidOperationException($"A user with email '{normalizedEmail}' already exists.");
         }
 
-        var user = User.Create(Guid.NewGuid(), email, displayName, role, timeProvider.GetUtcNow(), createdByUserId);
+        var passwordHash = string.IsNullOrWhiteSpace(password) ? null : HashPassword(password);
+        var user = User.Create(
+            Guid.NewGuid(),
+            email,
+            displayName,
+            role,
+            timeProvider.GetUtcNow(),
+            createdByUserId,
+            CombinePermissions(permissions, role),
+            passwordHash);
         await userRepository.AddAsync(user, cancellationToken);
         return UserDto.FromDomain(user);
     }
@@ -39,6 +51,8 @@ public sealed class UserService(IUserRepository userRepository, TimeProvider tim
         Guid id,
         string displayName,
         UserRole role,
+        IReadOnlyCollection<UserPermission>? permissions,
+        string? newPassword,
         CancellationToken cancellationToken = default)
     {
         var user = await userRepository.GetByIdAsync(id, cancellationToken)
@@ -54,9 +68,24 @@ public sealed class UserService(IUserRepository userRepository, TimeProvider tim
             await EnsureNotLastEnabledAdministratorAsync(cancellationToken);
         }
 
-        var updated = user with { DisplayName = displayName.Trim(), Role = role };
+        var updated = user with
+        {
+            DisplayName = displayName.Trim(),
+            Role = role,
+            Permissions = CombinePermissions(permissions, role),
+            PasswordHash = string.IsNullOrWhiteSpace(newPassword) ? user.PasswordHash : HashPassword(newPassword),
+        };
         await userRepository.UpdateAsync(updated, cancellationToken);
         return UserDto.FromDomain(updated);
+    }
+
+    public async Task<IReadOnlyList<UserDto>> GetAssignableTrusteesAsync(CancellationToken cancellationToken = default)
+    {
+        var users = await userRepository.GetAllAsync(cancellationToken);
+        return users
+            .Where(user => user.IsEnabled && user.Role == UserRole.Trustee)
+            .Select(UserDto.FromDomain)
+            .ToList();
     }
 
     public async Task EnableUserAsync(Guid id, CancellationToken cancellationToken = default)
@@ -97,5 +126,29 @@ public sealed class UserService(IUserRepository userRepository, TimeProvider tim
         {
             throw new InvalidOperationException("Cannot disable or demote the last enabled Administrator.");
         }
+    }
+
+    private string HashPassword(string password)
+    {
+        ValidatePassword(password);
+        return passwordHasher.HashPassword(password);
+    }
+
+    private static void ValidatePassword(string password)
+    {
+        if (string.IsNullOrWhiteSpace(password) || password.Length < 8)
+        {
+            throw new ArgumentException("Local passwords must be at least 8 characters long.", nameof(password));
+        }
+    }
+
+    private static UserPermission CombinePermissions(IReadOnlyCollection<UserPermission>? permissions, UserRole role)
+    {
+        if (permissions is null)
+        {
+            return User.DefaultPermissionsFor(role);
+        }
+
+        return permissions.Aggregate(UserPermission.None, (current, permission) => current | permission);
     }
 }

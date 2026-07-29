@@ -8,6 +8,14 @@ export function useUsers(enabled = true) {
   return useQuery({ queryKey: usersQueryKey, queryFn: usersApi.listUsers, enabled });
 }
 
+export function useAssignableTrustees(enabled = true) {
+  return useQuery({
+    queryKey: ["users", "assignable-trustees"],
+    queryFn: usersApi.listAssignableTrustees,
+    enabled,
+  });
+}
+
 export function useCreateUser() {
   const queryClient = useQueryClient();
   return useMutation({

@@ -16,7 +16,7 @@ public sealed class JwtTokenGenerator(IOptions<JwtOptions> options) : IJwtTokenG
         var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.SigningKey));
         var credentials = new SigningCredentials(signingKey, SecurityAlgorithms.HmacSha256);
 
-        var claims = new[]
+        var claims = new List<Claim>
         {
             new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
             new Claim(JwtRegisteredClaimNames.Email, user.Email),
@@ -24,6 +24,11 @@ public sealed class JwtTokenGenerator(IOptions<JwtOptions> options) : IJwtTokenG
             // claim-type mapping unchanged and matches Program.cs's RoleClaimType on validation.
             new Claim("role", user.Role.ToString()),
         };
+
+        foreach (var permission in Enum.GetValues<UserPermission>().Where(permission => permission != UserPermission.None && user.HasPermission(permission)))
+        {
+            claims.Add(new Claim("permission", permission.ToString()));
+        }
 
         var token = new JwtSecurityToken(
             issuer: jwtOptions.Issuer,

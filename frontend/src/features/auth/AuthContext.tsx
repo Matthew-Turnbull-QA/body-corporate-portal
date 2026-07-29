@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useState, type React
 import { apiFetch, setAccessToken, setUnauthorizedHandler } from "../../api/client";
 import type { UserDto } from "./types";
 
-interface GoogleSignInResponse {
+interface SignInResponse {
   accessToken: string;
   user: UserDto;
 }
@@ -11,6 +11,7 @@ interface AuthContextValue {
   user: UserDto | null;
   isSigningIn: boolean;
   signInWithGoogle: (googleIdToken: string) => Promise<UserDto>;
+  signInWithPassword: (email: string, password: string) => Promise<UserDto>;
   signOut: () => void;
 }
 
@@ -19,6 +20,9 @@ const defaultAuthContextValue: AuthContextValue = {
   user: null,
   isSigningIn: false,
   signInWithGoogle: async () => {
+    throw new Error("useAuth must be used within an AuthProvider");
+  },
+  signInWithPassword: async () => {
     throw new Error("useAuth must be used within an AuthProvider");
   },
   signOut: () => undefined,
@@ -87,7 +91,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signInWithGoogle = useCallback(async (googleIdToken: string) => {
     setIsSigningIn(true);
     try {
-      const result = await apiFetch<GoogleSignInResponse>("/api/auth/google", {
+      const result = await apiFetch<SignInResponse>("/api/auth/google", {
         method: "POST",
         body: JSON.stringify({ idToken: googleIdToken }),
       });
@@ -100,8 +104,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const signInWithPassword = useCallback(async (email: string, password: string) => {
+    setIsSigningIn(true);
+    try {
+      const result = await apiFetch<SignInResponse>("/api/auth/password", {
+        method: "POST",
+        body: JSON.stringify({ email, password }),
+      });
+      setAccessToken(result.accessToken);
+      setUser(result.user);
+      persistAuthState(result.accessToken, result.user);
+      return result.user;
+    } finally {
+      setIsSigningIn(false);
+    }
+  }, []);
+
   return (
-    <AuthContext.Provider value={{ user, isSigningIn, signInWithGoogle, signOut }}>
+    <AuthContext.Provider value={{ user, isSigningIn, signInWithGoogle, signInWithPassword, signOut }}>
       {children}
     </AuthContext.Provider>
   );

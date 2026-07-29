@@ -7,6 +7,8 @@ public sealed record UserDto(
     string Email,
     string DisplayName,
     UserRole Role,
+    IReadOnlyList<UserPermission> Permissions,
+    bool HasLocalPassword,
     bool IsEnabled,
     DateTimeOffset CreatedAtUtc,
     DateTimeOffset? LastLoginAtUtc)
@@ -16,7 +18,14 @@ public sealed record UserDto(
         user.Email,
         user.DisplayName,
         user.Role,
+        ExpandPermissions(user.Permissions),
+        user.PasswordHash is not null,
         user.IsEnabled,
         user.CreatedAtUtc,
         user.LastLoginAtUtc);
+
+    private static IReadOnlyList<UserPermission> ExpandPermissions(UserPermission permissions) =>
+        Enum.GetValues<UserPermission>()
+            .Where(permission => permission != UserPermission.None && permissions.HasFlag(permission))
+            .ToList();
 }

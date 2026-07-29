@@ -25,8 +25,16 @@ mechanism. Flow: React gets a Google ID token client-side → posts it to
 `POST /api/auth/google` → `GoogleTokenValidator` validates signature/audience/issuer
 → `AuthenticationService` looks up the verified email in `Users` → **rejects before
 issuing anything** if the email is unknown or disabled → only then issues the app's
-own short-lived JWT. No user is ever auto-created; this is the enforcement point for
-"no self-registration."
+own short-lived JWT. No user is ever auto-created during sign-in; this is the
+enforcement point for "no self-registration."
+
+The public request-access flow preserves that rule. `POST /api/access-requests`
+collects contact/property details into a pending `AccessRequest`, but still does not
+create an enabled login-capable `User`. An Administrator must approve the request,
+choose role/permissions, and optionally set a local password before the person can
+sign in. If the submitted email already belongs to a user, the request stores
+`ExistingUserId` and is surfaced to admins as a reactivation/existing-account card
+rather than creating another user record.
 
 An unknown email and a disabled user get the *same* rejection response deliberately —
 the app never reveals whether a given email exists, which would otherwise leak
@@ -112,11 +120,11 @@ interface) was rejected as premature: there's only one real source today, and a
 single parameterized method is trivially extended into a second caller later without
 needing to guess the abstraction's shape now.
 
-**Trustee assignment is Administrator-only, and validates role at write time.**
-`PATCH /api/jobs/{id}/assign` requires `RequireAdministrator` and
+**Trustee assignment is permission-gated, and validates role at write time.**
+`PATCH /api/jobs/{id}/assign` requires the `AssignJobs` permission and
 `JobService.AssignTrusteeAsync` checks the target user's `Role == Trustee` before
-persisting (400 if not, 404 if the user doesn't exist at all) — an Administrator
-can't accidentally assign a job to another Administrator via this endpoint. This is
+persisting (400 if not, 404 if the user doesn't exist at all) — a permitted reviewer
+can't accidentally assign a job to an Administrator via this endpoint. This is
 deliberately just a manual per-job assignment, not the "Assignment engine" from the
 roadmap (no routing rules, no notifications); it exists so that engine has a `Job`
 field and an authorization shape to build on rather than starting from nothing.

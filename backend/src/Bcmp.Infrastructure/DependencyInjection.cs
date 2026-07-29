@@ -1,3 +1,4 @@
+using Bcmp.Application.AccessRequests;
 using Bcmp.Application.Auth;
 using Bcmp.Application.Jobs;
 using Bcmp.Application.Properties;
@@ -22,6 +23,7 @@ public static class DependencyInjection
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IPropertyRepository, PropertyRepository>();
         services.AddScoped<IJobRepository, JobRepository>();
+        services.AddScoped<IAccessRequestRepository, AccessRequestRepository>();
 
         services.AddOptions<GoogleAuthOptions>()
             .Bind(configuration.GetSection(GoogleAuthOptions.SectionName))
@@ -34,6 +36,7 @@ public static class DependencyInjection
             .ValidateDataAnnotations()
             .ValidateOnStart();
         services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
+        services.AddScoped<IPasswordHasher, Pbkdf2PasswordHasher>();
 
         // Not ValidateOnStart: Bootstrap:AdminEmail is only required when actually seeding (--seed),
         // not on every normal app start.

@@ -6,6 +6,7 @@ namespace Bcmp.Application.Auth;
 public sealed class AuthenticationService(
     IGoogleTokenValidator googleTokenValidator,
     IUserRepository userRepository,
+    IPasswordHasher passwordHasher,
     IJwtTokenGenerator jwtTokenGenerator,
     TimeProvider timeProvider) : IAuthenticationService
 {
@@ -20,6 +21,32 @@ public sealed class AuthenticationService(
         var normalizedEmail = User.NormalizeEmail(identity.Email);
         var user = await userRepository.GetByEmailAsync(normalizedEmail, cancellationToken);
         if (user is null || !user.IsEnabled)
+        {
+            return null;
+        }
+
+        var signedInUser = user with { LastLoginAtUtc = timeProvider.GetUtcNow() };
+        await userRepository.UpdateAsync(signedInUser, cancellationToken);
+
+        var accessToken = jwtTokenGenerator.GenerateToken(signedInUser);
+        return new AuthenticationResult(accessToken, UserDto.FromDomain(signedInUser));
+    }
+
+    public async Task<AuthenticationResult?> SignInWithPasswordAsync(string email, string password, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password))
+        {
+            return null;
+        }
+
+        var normalizedEmail = User.NormalizeEmail(email);
+        var user = await userRepository.GetByEmailAsync(normalizedEmail, cancellationToken);
+        if (user is null || !user.IsEnabled || user.PasswordHash is null)
+        {
+            return null;
+        }
+
+        if (!passwordHasher.VerifyPassword(user.PasswordHash, password))
         {
             return null;
         }

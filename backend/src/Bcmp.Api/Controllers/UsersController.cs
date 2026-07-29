@@ -12,9 +12,18 @@ namespace Bcmp.Api.Controllers;
 [Authorize]
 public sealed class UsersController(IUserService userService) : ControllerBase
 {
-    public sealed record CreateUserRequest(string Email, string DisplayName, UserRole Role);
+    public sealed record CreateUserRequest(
+        string Email,
+        string DisplayName,
+        UserRole Role,
+        IReadOnlyList<UserPermission>? Permissions,
+        string? Password);
 
-    public sealed record UpdateUserRequest(string DisplayName, UserRole Role);
+    public sealed record UpdateUserRequest(
+        string DisplayName,
+        UserRole Role,
+        IReadOnlyList<UserPermission>? Permissions,
+        string? NewPassword);
 
     [HttpGet("me")]
     public async Task<IActionResult> GetMe(CancellationToken cancellationToken)
@@ -37,6 +46,14 @@ public sealed class UsersController(IUserService userService) : ControllerBase
         return Ok(users);
     }
 
+    [HttpGet("assignable-trustees")]
+    [Authorize(Policy = AuthorizationPolicyNames.RequireJobAssign)]
+    public async Task<IActionResult> GetAssignableTrustees(CancellationToken cancellationToken)
+    {
+        var users = await userService.GetAssignableTrusteesAsync(cancellationToken);
+        return Ok(users);
+    }
+
     [HttpGet("{id:guid}")]
     [Authorize(Policy = AuthorizationPolicyNames.RequireAdministrator)]
     public async Task<IActionResult> GetById(Guid id, CancellationToken cancellationToken)
@@ -53,6 +70,8 @@ public sealed class UsersController(IUserService userService) : ControllerBase
             request.Email,
             request.DisplayName,
             request.Role,
+            request.Permissions,
+            request.Password,
             GetCurrentUserId(),
             cancellationToken);
 
@@ -63,7 +82,13 @@ public sealed class UsersController(IUserService userService) : ControllerBase
     [Authorize(Policy = AuthorizationPolicyNames.RequireAdministrator)]
     public async Task<IActionResult> Update(Guid id, UpdateUserRequest request, CancellationToken cancellationToken)
     {
-        var updatedUser = await userService.UpdateUserAsync(id, request.DisplayName, request.Role, cancellationToken);
+        var updatedUser = await userService.UpdateUserAsync(
+            id,
+            request.DisplayName,
+            request.Role,
+            request.Permissions,
+            request.NewPassword,
+            cancellationToken);
         return Ok(updatedUser);
     }
 

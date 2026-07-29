@@ -1,5 +1,6 @@
 using Bcmp.Domain.Jobs;
 using Bcmp.Domain.Properties;
+using Bcmp.Domain.AccessRequests;
 using Bcmp.Domain.Users;
 using Microsoft.EntityFrameworkCore;
 
@@ -10,6 +11,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     public DbSet<User> Users => Set<User>();
     public DbSet<Property> Properties => Set<Property>();
     public DbSet<Job> Jobs => Set<Job>();
+    public DbSet<AccessRequest> AccessRequests => Set<AccessRequest>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

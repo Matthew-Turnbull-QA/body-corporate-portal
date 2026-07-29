@@ -1,8 +1,20 @@
 import { useEffect, useState, type FormEvent } from "react";
-import type { UserRole } from "../auth/types";
+import {
+  allJobPermissions,
+  defaultPermissionsForRole,
+  jobPermissionLabels,
+  type UserPermission,
+  type UserRole,
+} from "../auth/types";
 
 interface AddUserDialogProps {
-  onSubmit: (values: { email: string; displayName: string; role: UserRole }) => Promise<void>;
+  onSubmit: (values: {
+    email: string;
+    displayName: string;
+    role: UserRole;
+    permissions: UserPermission[];
+    password: string | null;
+  }) => Promise<void>;
   onClose: () => void;
 }
 
@@ -10,6 +22,8 @@ export function AddUserDialog({ onSubmit, onClose }: AddUserDialogProps) {
   const [email, setEmail] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [role, setRole] = useState<UserRole>("Trustee");
+  const [permissions, setPermissions] = useState<UserPermission[]>(defaultPermissionsForRole("Trustee"));
+  const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -29,13 +43,24 @@ export function AddUserDialog({ onSubmit, onClose }: AddUserDialogProps) {
     setError(null);
     setIsSubmitting(true);
     try {
-      await onSubmit({ email, displayName, role });
+      await onSubmit({ email, displayName, role, permissions, password: password.trim() || null });
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to add user.");
     } finally {
       setIsSubmitting(false);
     }
+  }
+
+  function handleRoleChange(nextRole: UserRole) {
+    setRole(nextRole);
+    setPermissions(defaultPermissionsForRole(nextRole));
+  }
+
+  function togglePermission(permission: UserPermission) {
+    setPermissions((current) =>
+      current.includes(permission) ? current.filter((item) => item !== permission) : [...current, permission],
+    );
   }
 
   return (
@@ -52,10 +77,34 @@ export function AddUserDialog({ onSubmit, onClose }: AddUserDialogProps) {
         </label>
         <label className="dialog__field">
           Role
-          <select value={role} onChange={(e) => setRole(e.target.value as UserRole)}>
+          <select value={role} onChange={(e) => handleRoleChange(e.target.value as UserRole)}>
             <option value="Trustee">Trustee</option>
             <option value="Administrator">Administrator</option>
           </select>
+        </label>
+        <fieldset className="dialog__fieldset">
+          <legend>Job permissions</legend>
+          <div className="checkbox-grid">
+            {allJobPermissions.map((permission) => (
+              <label key={permission} className="checkbox-option">
+                <input
+                  type="checkbox"
+                  checked={permissions.includes(permission)}
+                  onChange={() => togglePermission(permission)}
+                />
+                {jobPermissionLabels[permission]}
+              </label>
+            ))}
+          </div>
+        </fieldset>
+        <label className="dialog__field">
+          Local password
+          <input
+            type="password"
+            minLength={8}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
         </label>
         {error && (
           <p className="error-banner" role="alert">

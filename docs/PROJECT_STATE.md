@@ -1,6 +1,6 @@
 # Project State and Handoff
 
-Last updated: 2026-07-20
+Last updated: 2026-07-29
 
 ## Current milestone
 
@@ -20,10 +20,11 @@ Phase 1 authentication and user-management work is complete and verified locally
 ## Current status summary
 
 Phase 2 is underway: Properties and Jobs are both built, with Jobs having
-gone through one round of real user feedback (sortable table, last-updated
-tracking, active/completed split, trustee-assignment groundwork). The
-foundation remains stable: auth, user management, database access, and
-local dev flow all still work.
+gone through real user feedback. The 2026-07-29 suggested-changes batch added
+configurable per-user job workflow permissions, optional local email/password
+login alongside Google sign-in, and an admin-reviewed request-access flow. The
+foundation remains stable: auth, user management, database access, and local dev
+flow all still work.
 
 ## Recommended next priority
 
@@ -51,11 +52,31 @@ routing/notifications on top of that first instead.
    worker becomes a second caller of that same method with `Source.Email`,
    not a refactor of it.
 
-   Trustee assignment (new): `PATCH /api/jobs/{id}/assign`, Administrator-only,
-   validates the target user exists and is `Role.Trustee` (400 if not, 404 if
-   unknown). This is groundwork for Phase 2 item 4 (Assignment engine) below,
-   not that engine itself — right now it's a manual per-job dropdown, not
-   routing/notification logic.
+   Trustee assignment (updated 2026-07-29): `PATCH /api/jobs/{id}/assign` is
+   now controlled by the user's `AssignJobs` permission instead of hard-coded
+   Administrator-only access. The target user still needs to exist and be
+   `Role.Trustee` (400 if not, 404 if unknown). This is groundwork for Phase 2
+   item 4 (Assignment engine) below, not that engine itself — right now it's
+   a manual per-job dropdown, not routing/notification logic.
+
+   User workflow permissions (new 2026-07-29): Users now carry configurable
+   job permissions: `LoadJobs`, `CreateJobs`, `UpdateJobStatus`, and
+   `AssignJobs`. Existing Trustees keep load/create/status-update by default;
+   existing Administrators get all four via migration.
+
+   Local password login (new 2026-07-29): Users can optionally have a local
+   password hash set by an Administrator when creating/editing the user.
+   `/api/auth/password` signs in with email/password while Google sign-in
+   remains available.
+
+   Request access (new 2026-07-29): The login screen now links to a public
+   request-access form. Anonymous visitors can submit contact/property details
+   into `AccessRequests`, but no login-capable user is created until an
+   Administrator approves the request, chooses role/permissions, and optionally
+   sets a local password. If the submitted email already belongs to a user, the
+   request links to that user and appears in the Access tab as a reactivation
+   or existing-account card for admin handling instead of trying to create a
+   duplicate user.
 
    Verified live against local Postgres/API for every increment (create,
    list with joined property/trustee names, status transitions, assign/
@@ -93,11 +114,11 @@ routing/notifications on top of that first instead.
 
 1. Explicitly confirm the Jobs screen end to end in a real browser (add a
    job, sort every column both directions, move a job to/from Completed and
-   watch it switch sections, assign/unassign a trustee as Administrator) and
-   record the result here — the groundwork is verified live at the API
-   level, but a real Trustee-role click-through (not just a hand-crafted
-   JWT) hasn't happened yet.
-2. Then move on to the Jobs domain's remaining gaps — job editing, and
+   watch it switch sections, assign/unassign a trustee as a user with
+   `AssignJobs`) and record the result here.
+2. Confirm local email/password sign-in with a user that has a local password
+   set, then confirm a user without one still cannot sign in locally.
+3. Then move on to the Jobs domain's remaining gaps — job editing, and
    whatever the next Phase 2 item needs (see roadmap above: Email
    integration next; Assignment engine now has a manual-assign foundation
    to build routing/notifications on top of).
@@ -109,3 +130,6 @@ routing/notifications on top of that first instead.
 - 2026-07-19: Login flow verified end to end; add-user and add-property flows confirmed working
 - 2026-07-20: Jobs domain implemented (backend fully live-verified; frontend built/linted but not yet click-tested in a browser)
 - 2026-07-20: Jobs feedback round: sortable columns, UpdatedAtUtc + "Last updated" column, Active/Completed split, and an Administrator-only assign-to-trustee field/endpoint (groundwork for the Assignment engine phase). All backend pieces live-verified; 42/42 backend tests pass.
+- 2026-07-29: Suggested changes batch implemented: local OAuth origin verified as `http://localhost:5173`, configurable per-user job permissions added, and optional local email/password login added. Verified with frontend build/lint, API build, backend application/domain tests, local migration, and local dev-server restart.
+- 2026-07-29: Request-access flow implemented: public details form, admin review list, approve/reject endpoints, and approval into a real user. Verified with frontend build/lint, API build, backend application/domain tests, local migration, local dev-server restart, and user browser click-through.
+- 2026-07-29: Existing-user request handling refined: access requests now store `ExistingUserId` when the email already belongs to a user, allowing admins to reactivate disabled users or handle active-account follow-ups from the Access tab. Verified with frontend build/lint, backend application tests, local migration, local dev-server restart, and user browser click-through. The duplicate pending local row for `automationtoolsmith@gmail.com` was manually removed from `bcmp_dev`, leaving the approved request/user intact.

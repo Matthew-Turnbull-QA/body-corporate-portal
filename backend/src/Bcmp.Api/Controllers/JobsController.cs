@@ -19,6 +19,7 @@ public sealed class JobsController(IJobService jobService) : ControllerBase
     public sealed record AssignTrusteeRequest(Guid? TrusteeUserId);
 
     [HttpGet]
+    [Authorize(Policy = AuthorizationPolicyNames.RequireJobLoad)]
     public async Task<IActionResult> GetAll(CancellationToken cancellationToken)
     {
         var jobs = await jobService.GetAllAsync(cancellationToken);
@@ -26,6 +27,7 @@ public sealed class JobsController(IJobService jobService) : ControllerBase
     }
 
     [HttpGet("{id:guid}")]
+    [Authorize(Policy = AuthorizationPolicyNames.RequireJobLoad)]
     public async Task<IActionResult> GetById(Guid id, CancellationToken cancellationToken)
     {
         var job = await jobService.GetByIdAsync(id, cancellationToken);
@@ -33,6 +35,7 @@ public sealed class JobsController(IJobService jobService) : ControllerBase
     }
 
     [HttpPost]
+    [Authorize(Policy = AuthorizationPolicyNames.RequireJobCreate)]
     public async Task<IActionResult> Create(CreateJobRequest request, CancellationToken cancellationToken)
     {
         var userId = GetCurrentUserId();
@@ -46,6 +49,7 @@ public sealed class JobsController(IJobService jobService) : ControllerBase
     }
 
     [HttpPatch("{id:guid}/status")]
+    [Authorize(Policy = AuthorizationPolicyNames.RequireJobStatusUpdate)]
     public async Task<IActionResult> UpdateStatus(Guid id, UpdateJobStatusRequest request, CancellationToken cancellationToken)
     {
         var updated = await jobService.UpdateStatusAsync(id, request.Status, cancellationToken);
@@ -53,7 +57,7 @@ public sealed class JobsController(IJobService jobService) : ControllerBase
     }
 
     [HttpPatch("{id:guid}/assign")]
-    [Authorize(Policy = AuthorizationPolicyNames.RequireAdministrator)]
+    [Authorize(Policy = AuthorizationPolicyNames.RequireJobAssign)]
     public async Task<IActionResult> AssignTrustee(Guid id, AssignTrusteeRequest request, CancellationToken cancellationToken)
     {
         var updated = await jobService.AssignTrusteeAsync(id, request.TrusteeUserId, cancellationToken);

@@ -479,6 +479,10 @@ tbody tr:nth-child(even) {
   text-align: center;
 }
 
+.auth-card--wide {
+  width: min(100%, 480px);
+}
+
 .auth-logo {
   width: 60px;
   height: 60px;
@@ -502,8 +506,72 @@ tbody tr:nth-child(even) {
   margin: 0;
 }
 
+.auth-form {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 22px;
+}
+
+.auth-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  text-align: left;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.auth-field input,
+.auth-field select,
+.auth-field textarea {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: white;
+  color: var(--text-primary);
+  outline: none;
+  font-family: inherit;
+}
+
+.auth-field textarea {
+  resize: vertical;
+}
+
+.auth-field input:focus,
+.auth-field select:focus,
+.auth-field textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(47, 125, 70, 0.16);
+}
+
+.auth-submit {
+  width: 100%;
+}
+
+.auth-divider {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 18px;
+  color: var(--text-muted);
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
 .auth-google {
-  margin-top: 20px;
+  margin-top: 18px;
   display: flex;
   justify-content: center;
 }
@@ -521,6 +589,35 @@ tbody tr:nth-child(even) {
   font-size: 12px;
   color: var(--text-muted);
   text-align: center;
+}
+
+.auth-text-link {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.auth-text-link:hover,
+.auth-text-link:focus-visible {
+  text-decoration: underline;
+}
+
+.success-panel {
+  width: 100%;
+  margin-top: 22px;
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--accent-soft-bg);
+  color: var(--text-primary);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: center;
+}
+
+.success-panel h3,
+.success-panel p {
+  margin: 0;
 }
 
 .dialog-overlay {
@@ -574,6 +671,45 @@ tbody tr:nth-child(even) {
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
+.dialog__fieldset {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  margin: 2px 0 0;
+}
+
+.dialog__fieldset legend {
+  padding: 0 6px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.checkbox-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.checkbox-grid--compact {
+  grid-template-columns: 1fr;
+  gap: 6px;
+}
+
+.checkbox-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.checkbox-option input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+}
+
 .dialog__field input:focus,
 .dialog__field select:focus,
 .dialog__field textarea:focus {
@@ -611,6 +747,41 @@ tbody tr:nth-child(even) {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 12px;
+}
+
+.table-subtext {
+  display: block;
+  margin-top: 4px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.table-subtext--strong {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.review-controls {
+  min-width: 240px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.review-controls input,
+.review-controls select,
+.review-controls textarea {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: white;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 13px;
+}
+
+.review-controls textarea {
+  resize: vertical;
 }
 
 @media (max-width: 900px) {

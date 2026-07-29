@@ -17,9 +17,9 @@ function getInitials(value: string | null | undefined) {
 export function AppLayout() {
   const { user, signOut } = useAuth();
   const location = useLocation();
-  const isLoginPage = location.pathname === "/login";
+  const isAuthPage = location.pathname === "/login" || location.pathname === "/request-access";
 
-  if (isLoginPage) {
+  if (isAuthPage) {
     return <Outlet />;
   }
 
@@ -41,9 +41,17 @@ export function AppLayout() {
               Properties
             </NavLink>
             {user.role === "Administrator" && (
-              <NavLink className={({ isActive }) => `app-shell__nav-link ${isActive ? "active" : ""}`} to="/users">
-                Users
-              </NavLink>
+              <>
+                <NavLink className={({ isActive }) => `app-shell__nav-link ${isActive ? "active" : ""}`} to="/users">
+                  Users
+                </NavLink>
+                <NavLink
+                  className={({ isActive }) => `app-shell__nav-link ${isActive ? "active" : ""}`}
+                  to="/access-requests"
+                >
+                  Access
+                </NavLink>
+              </>
             )}
           </nav>
         </div>

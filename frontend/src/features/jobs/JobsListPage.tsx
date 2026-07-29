@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../auth/AuthContext";
+import { hasPermission } from "../auth/types";
 import { useProperties } from "../properties/useProperties";
-import { useUsers } from "../users/useUsers";
+import { useAssignableTrustees } from "../users/useUsers";
 import { useAssignTrustee, useCreateJob, useJobs, useUpdateJobStatus } from "./useJobs";
 import type { JobDto, JobStatus } from "../../api/jobs";
 
@@ -53,11 +54,12 @@ function sortJobs(jobs: JobDto[], sortKey: SortKey, sortDirection: SortDirection
 
 export function JobsListPage() {
   const { user } = useAuth();
-  const isAdmin = user?.role === "Administrator";
+  const canCreateJobs = hasPermission(user, "CreateJobs");
+  const canUpdateJobStatus = hasPermission(user, "UpdateJobStatus");
+  const canAssignJobs = hasPermission(user, "AssignJobs");
   const { data: jobs, isLoading, error } = useJobs();
   const { data: properties } = useProperties();
-  const { data: users } = useUsers(isAdmin);
-  const trustees = users?.filter((u) => u.role === "Trustee" && u.isEnabled) ?? [];
+  const { data: trustees } = useAssignableTrustees(canAssignJobs);
   const createJob = useCreateJob();
   const updateJobStatus = useUpdateJobStatus();
   const assignTrustee = useAssignTrustee();
@@ -143,7 +145,7 @@ export function JobsListPage() {
           <span className={`status-chip ${statusChipClass[job.status]}`}>{statusLabels[job.status]}</span>
         </td>
         <td>
-          {isAdmin ? (
+          {canAssignJobs ? (
             <select
               value={job.assignedTrusteeUserId ?? ""}
               onChange={(event) =>
@@ -151,7 +153,7 @@ export function JobsListPage() {
               }
             >
               <option value="">Unassigned</option>
-              {trustees.map((trustee) => (
+              {trustees?.map((trustee) => (
                 <option key={trustee.id} value={trustee.id}>
                   {trustee.displayName}
                 </option>
@@ -165,16 +167,20 @@ export function JobsListPage() {
         <td>{new Date(job.updatedAtUtc).toLocaleString()}</td>
         <td>
           <div className="table-actions">
-            <select
-              value={job.status}
-              onChange={(event) => updateJobStatus.mutate({ id: job.id, status: event.target.value as JobStatus })}
-            >
-              {statusOptions.map((status) => (
-                <option key={status} value={status}>
-                  {statusLabels[status]}
-                </option>
-              ))}
-            </select>
+            {canUpdateJobStatus ? (
+              <select
+                value={job.status}
+                onChange={(event) => updateJobStatus.mutate({ id: job.id, status: event.target.value as JobStatus })}
+              >
+                {statusOptions.map((status) => (
+                  <option key={status} value={status}>
+                    {statusLabels[status]}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <span className="text-muted">{statusLabels[job.status]}</span>
+            )}
           </div>
         </td>
       </tr>
@@ -189,8 +195,14 @@ export function JobsListPage() {
           className="button button--primary"
           type="button"
           onClick={() => setIsAdding(true)}
-          disabled={!properties || properties.length === 0}
-          title={!properties || properties.length === 0 ? "Add a property before creating a job" : undefined}
+          disabled={!canCreateJobs || !properties || properties.length === 0}
+          title={
+            !canCreateJobs
+              ? "You do not have permission to create jobs"
+              : !properties || properties.length === 0
+                ? "Add a property before creating a job"
+                : undefined
+          }
         >
           Add job
         </button>

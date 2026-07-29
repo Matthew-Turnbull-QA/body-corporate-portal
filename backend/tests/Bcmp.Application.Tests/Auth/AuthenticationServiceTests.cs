@@ -15,6 +15,7 @@ public class AuthenticationServiceTests
 
     private IGoogleTokenValidator _googleTokenValidator = null!;
     private IUserRepository _userRepository = null!;
+    private IPasswordHasher _passwordHasher = null!;
     private IJwtTokenGenerator _jwtTokenGenerator = null!;
     private AuthenticationService _sut = null!;
 
@@ -23,8 +24,9 @@ public class AuthenticationServiceTests
     {
         _googleTokenValidator = Substitute.For<IGoogleTokenValidator>();
         _userRepository = Substitute.For<IUserRepository>();
+        _passwordHasher = Substitute.For<IPasswordHasher>();
         _jwtTokenGenerator = Substitute.For<IJwtTokenGenerator>();
-        _sut = new AuthenticationService(_googleTokenValidator, _userRepository, _jwtTokenGenerator, new FixedTimeProvider(Now));
+        _sut = new AuthenticationService(_googleTokenValidator, _userRepository, _passwordHasher, _jwtTokenGenerator, new FixedTimeProvider(Now));
     }
 
     [Test]
@@ -80,5 +82,48 @@ public class AuthenticationServiceTests
         result.User.Email.Should().Be(user.Email);
         await _userRepository.Received(1).UpdateAsync(Arg.Is<User>(u => u.LastLoginAtUtc == Now), Arg.Any<CancellationToken>());
         _jwtTokenGenerator.Received(1).GenerateToken(Arg.Is<User>(u => u.LastLoginAtUtc == Now));
+    }
+
+    [Test]
+    public async Task SignInWithPasswordAsync_ValidCredentials_IssuesTokenAndRecordsLastLogin()
+    {
+        var user = User.Create(Guid.NewGuid(), "trustee@example.com", "Trustee One", UserRole.Trustee, Now) with { PasswordHash = "hashed-password" };
+        _userRepository.GetByEmailAsync(user.Email).Returns(user);
+        _passwordHasher.VerifyPassword("hashed-password", "correct-password").Returns(true);
+        _jwtTokenGenerator.GenerateToken(Arg.Any<User>()).Returns("signed-jwt");
+
+        var result = await _sut.SignInWithPasswordAsync("Trustee@Example.com", "correct-password");
+
+        result.Should().NotBeNull();
+        result!.AccessToken.Should().Be("signed-jwt");
+        await _userRepository.Received(1).UpdateAsync(Arg.Is<User>(u => u.LastLoginAtUtc == Now), Arg.Any<CancellationToken>());
+        _jwtTokenGenerator.Received(1).GenerateToken(Arg.Is<User>(u => u.LastLoginAtUtc == Now));
+    }
+
+    [Test]
+    public async Task SignInWithPasswordAsync_InvalidPassword_ReturnsNull()
+    {
+        var user = User.Create(Guid.NewGuid(), "trustee@example.com", "Trustee One", UserRole.Trustee, Now) with { PasswordHash = "hashed-password" };
+        _userRepository.GetByEmailAsync(user.Email).Returns(user);
+        _passwordHasher.VerifyPassword("hashed-password", "wrong-password").Returns(false);
+
+        var result = await _sut.SignInWithPasswordAsync(user.Email, "wrong-password");
+
+        result.Should().BeNull();
+        await _userRepository.DidNotReceive().UpdateAsync(Arg.Any<User>(), Arg.Any<CancellationToken>());
+        _jwtTokenGenerator.DidNotReceive().GenerateToken(Arg.Any<User>());
+    }
+
+    [Test]
+    public async Task SignInWithPasswordAsync_UserWithoutLocalPassword_ReturnsNull()
+    {
+        var user = User.Create(Guid.NewGuid(), "trustee@example.com", "Trustee One", UserRole.Trustee, Now);
+        _userRepository.GetByEmailAsync(user.Email).Returns(user);
+
+        var result = await _sut.SignInWithPasswordAsync(user.Email, "any-password");
+
+        result.Should().BeNull();
+        _passwordHasher.DidNotReceive().VerifyPassword(Arg.Any<string>(), Arg.Any<string>());
+        _jwtTokenGenerator.DidNotReceive().GenerateToken(Arg.Any<User>());
     }
 }
