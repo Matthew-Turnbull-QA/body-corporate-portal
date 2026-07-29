@@ -13,6 +13,10 @@ Use this as the running list for click-through notes, UX polish, bugs, and featu
 | Done | Login/Auth | Add a local email-and-password login option alongside Google sign-in. | Implemented 2026-07-29: optional per-user local password hash plus `/api/auth/password` and frontend email/password sign-in. |
 | Done | Login/Auth | Add a "Don't have an account? Request access" flow. | Implemented and user click-through verified 2026-07-29: anonymous users can submit details for admin review; approval creates/enables a real user. |
 | Done | Access Requests | Route existing-user access attempts to admins instead of blocking or duplicating users. | Implemented and user click-through verified 2026-07-29: access requests link to existing users and show as reactivation/existing-account cards in the Access tab. |
+| Done | Jobs | Prevent status text length from resizing rows. | Implemented 2026-07-29: status chips and status selects now use fixed dimensions; Chrome click-through measured consistent sizes. |
+| Done | Jobs | Treat Cancelled as closed rather than active. | Implemented 2026-07-29: Jobs page now groups `Completed` and `Cancelled` under Closed. |
+| Done | Jobs | Ask for optional notes when changing status. | Implemented 2026-07-29: status select opens a confirmation modal with optional notes before saving. |
+| Done | Jobs | Track status-change audit history and allow admin note edits. | Implemented 2026-07-29: `JobStatusHistory` records transitions, all users with `LoadJobs` can view history, and Administrators can edit notes while immutable audit fields remain unchanged. |
 
 ## Status Key
 

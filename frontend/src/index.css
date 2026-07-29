@@ -249,12 +249,18 @@ a {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 14px;
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
 }
 
 table {
   width: 100%;
   border-collapse: collapse;
+}
+
+.jobs-table {
+  table-layout: fixed;
+  min-width: 1120px;
 }
 
 thead th {
@@ -272,6 +278,8 @@ tbody td {
   padding: 14px 20px;
   border-top: 1px solid var(--border);
   font-size: 14px;
+  vertical-align: top;
+  overflow-wrap: anywhere;
 }
 
 tbody tr:nth-child(even) {
@@ -335,6 +343,7 @@ tbody tr:nth-child(even) {
   color: var(--text-primary);
   font-size: 13px;
   font-weight: 600;
+  min-height: 38px;
 }
 
 .table-actions {
@@ -342,6 +351,22 @@ tbody tr:nth-child(even) {
   justify-content: flex-end;
   gap: 8px;
   flex-wrap: wrap;
+  align-items: center;
+  min-width: 230px;
+}
+
+.table-actions__button {
+  min-height: 38px;
+  padding: 8px 12px;
+}
+
+.job-status-select {
+  width: 124px;
+}
+
+.job-trustee-select {
+  width: 100%;
+  min-width: 0;
 }
 
 .status-chip {
@@ -350,8 +375,11 @@ tbody tr:nth-child(even) {
   justify-content: center;
   border-radius: 999px;
   padding: 6px 10px;
+  min-width: 88px;
+  min-height: 30px;
   font-size: 12px;
   font-weight: 600;
+  white-space: nowrap;
 }
 
 .status-chip--enabled {
@@ -382,6 +410,93 @@ tbody tr:nth-child(even) {
 .status-chip--cancelled {
   background: var(--error-bg);
   color: var(--error-text);
+}
+
+.history-row td {
+  padding: 0;
+  background: var(--surface);
+}
+
+.history-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 20px 16px;
+  color: var(--text-muted);
+  border-top: 1px solid var(--border);
+}
+
+.history-panel--error {
+  color: var(--error-text);
+}
+
+.history-entry {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px 16px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--table-row-alt);
+}
+
+.history-entry__summary,
+.history-entry__note,
+.history-entry__edit {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.history-entry__statuses,
+.status-change-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.history-entry__arrow {
+  color: var(--text-muted);
+  font-weight: 700;
+}
+
+.history-entry__note {
+  color: var(--text-primary);
+  grid-column: 1 / -1;
+}
+
+.history-entry__edit {
+  grid-column: 1 / -1;
+}
+
+.history-entry__edit textarea {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: white;
+  color: var(--text-primary);
+  font-family: inherit;
+  resize: vertical;
+}
+
+.history-entry__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.history-entry__edit-button {
+  align-self: start;
+  padding: 8px 12px;
+}
+
+.history-entry__error {
+  color: var(--error-text);
+  font-size: 13px;
+}
+
+.status-change-summary {
+  padding: 4px 0 8px;
 }
 
 .button {

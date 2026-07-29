@@ -14,9 +14,11 @@ public sealed class JobsController(IJobService jobService) : ControllerBase
 {
     public sealed record CreateJobRequest(Guid PropertyId, string Title, string? Description);
 
-    public sealed record UpdateJobStatusRequest(JobStatus Status);
+    public sealed record UpdateJobStatusRequest(JobStatus Status, string? Note);
 
     public sealed record AssignTrusteeRequest(Guid? TrusteeUserId);
+
+    public sealed record UpdateStatusHistoryNoteRequest(string? Note);
 
     [HttpGet]
     [Authorize(Policy = AuthorizationPolicyNames.RequireJobLoad)]
@@ -52,7 +54,39 @@ public sealed class JobsController(IJobService jobService) : ControllerBase
     [Authorize(Policy = AuthorizationPolicyNames.RequireJobStatusUpdate)]
     public async Task<IActionResult> UpdateStatus(Guid id, UpdateJobStatusRequest request, CancellationToken cancellationToken)
     {
-        var updated = await jobService.UpdateStatusAsync(id, request.Status, cancellationToken);
+        var userId = GetCurrentUserId();
+        if (userId is null)
+        {
+            return Unauthorized();
+        }
+
+        var updated = await jobService.UpdateStatusAsync(id, request.Status, request.Note, userId.Value, cancellationToken);
+        return Ok(updated);
+    }
+
+    [HttpGet("{id:guid}/status-history")]
+    [Authorize(Policy = AuthorizationPolicyNames.RequireJobLoad)]
+    public async Task<IActionResult> GetStatusHistory(Guid id, CancellationToken cancellationToken)
+    {
+        var history = await jobService.GetStatusHistoryAsync(id, cancellationToken);
+        return Ok(history);
+    }
+
+    [HttpPatch("{id:guid}/status-history/{historyId:guid}/note")]
+    [Authorize(Policy = AuthorizationPolicyNames.RequireAdministrator)]
+    public async Task<IActionResult> UpdateStatusHistoryNote(
+        Guid id,
+        Guid historyId,
+        UpdateStatusHistoryNoteRequest request,
+        CancellationToken cancellationToken)
+    {
+        var userId = GetCurrentUserId();
+        if (userId is null)
+        {
+            return Unauthorized();
+        }
+
+        var updated = await jobService.UpdateStatusHistoryNoteAsync(id, historyId, request.Note, userId.Value, cancellationToken);
         return Ok(updated);
     }
 

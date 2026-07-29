@@ -21,7 +21,21 @@ public interface IJobService
         Guid createdByUserId,
         CancellationToken cancellationToken = default);
 
-    Task<JobDto> UpdateStatusAsync(Guid id, JobStatus status, CancellationToken cancellationToken = default);
+    Task<JobDto> UpdateStatusAsync(
+        Guid id,
+        JobStatus status,
+        string? note,
+        Guid changedByUserId,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<JobStatusHistoryDto>> GetStatusHistoryAsync(Guid jobId, CancellationToken cancellationToken = default);
+
+    Task<JobStatusHistoryDto> UpdateStatusHistoryNoteAsync(
+        Guid jobId,
+        Guid historyId,
+        string? note,
+        Guid editedByUserId,
+        CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Assigns (or, with a null <paramref name="trusteeUserId"/>, clears) the job's assigned trustee.

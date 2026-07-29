@@ -74,12 +74,22 @@ public class JobServiceTests
         var sut = new JobService(_jobRepository, _propertyRepository, _userRepository, new FixedTimeProvider(later));
         _jobRepository.GetByIdAsync(job.Id).Returns(job);
         _propertyRepository.GetByIdAsync(property.Id).Returns(property);
+        var changedByUserId = Guid.NewGuid();
 
-        var result = await sut.UpdateStatusAsync(job.Id, JobStatus.InProgress);
+        var result = await sut.UpdateStatusAsync(job.Id, JobStatus.InProgress, "  Contractor booked  ", changedByUserId);
 
         result.Status.Should().Be(JobStatus.InProgress);
         result.UpdatedAtUtc.Should().Be(later);
-        await _jobRepository.Received(1).UpdateAsync(Arg.Is<Job>(j => j.Status == JobStatus.InProgress && j.UpdatedAtUtc == later), Arg.Any<CancellationToken>());
+        await _jobRepository.Received(1).UpdateStatusAsync(
+            Arg.Is<Job>(j => j.Status == JobStatus.InProgress && j.UpdatedAtUtc == later),
+            Arg.Is<JobStatusHistory>(h =>
+                h.JobId == job.Id
+                && h.FromStatus == JobStatus.Open
+                && h.ToStatus == JobStatus.InProgress
+                && h.Note == "Contractor booked"
+                && h.ChangedByUserId == changedByUserId
+                && h.ChangedAtUtc == later),
+            Arg.Any<CancellationToken>());
     }
 
     [Test]
@@ -87,9 +97,24 @@ public class JobServiceTests
     {
         _jobRepository.GetByIdAsync(Arg.Any<Guid>()).Returns((Job?)null);
 
-        var act = async () => await _sut.UpdateStatusAsync(Guid.NewGuid(), JobStatus.Completed);
+        var act = async () => await _sut.UpdateStatusAsync(Guid.NewGuid(), JobStatus.Completed, null, Guid.NewGuid());
 
         await act.Should().ThrowAsync<KeyNotFoundException>();
+    }
+
+    [Test]
+    public async Task UpdateStatusAsync_WithSameStatus_ThrowsAndDoesNotCreateHistory()
+    {
+        var job = Job.Create(Guid.NewGuid(), Guid.NewGuid(), "Leaking roof", "Description", JobSource.Manual, Guid.NewGuid(), Now);
+        _jobRepository.GetByIdAsync(job.Id).Returns(job);
+
+        var act = async () => await _sut.UpdateStatusAsync(job.Id, JobStatus.Open, "No change", Guid.NewGuid());
+
+        await act.Should().ThrowAsync<InvalidOperationException>();
+        await _jobRepository.DidNotReceive().UpdateStatusAsync(
+            Arg.Any<Job>(),
+            Arg.Any<JobStatusHistory>(),
+            Arg.Any<CancellationToken>());
     }
 
     [Test]
@@ -104,6 +129,106 @@ public class JobServiceTests
         var result = await _sut.GetAllAsync();
 
         result.Should().ContainSingle(j => j.Id == job.Id && j.PropertyName == "Sunset Villas");
+    }
+
+    [Test]
+    public async Task GetStatusHistoryAsync_WithKnownJob_ReturnsHistoryWithUserNames()
+    {
+        var changedBy = MakeTrustee();
+        var editedBy = MakeAdmin();
+        var job = Job.Create(Guid.NewGuid(), Guid.NewGuid(), "Leaking roof", "Description", JobSource.Manual, changedBy.Id, Now);
+        var history = JobStatusHistory.Create(
+            Guid.NewGuid(),
+            job.Id,
+            JobStatus.Open,
+            JobStatus.InProgress,
+            "Started",
+            changedBy.Id,
+            Now) with
+            {
+                NoteEditedByUserId = editedBy.Id,
+                NoteEditedAtUtc = Now.AddHours(1),
+            };
+        _jobRepository.GetByIdAsync(job.Id).Returns(job);
+        _jobRepository.GetStatusHistoryAsync(job.Id).Returns([history]);
+        _userRepository.GetAllAsync().Returns([changedBy, editedBy]);
+
+        var result = await _sut.GetStatusHistoryAsync(job.Id);
+
+        result.Should().ContainSingle(entry =>
+            entry.Id == history.Id
+            && entry.ChangedByDisplayName == "Terry Trustee"
+            && entry.NoteEditedByDisplayName == "Alex Admin");
+    }
+
+    [Test]
+    public async Task GetStatusHistoryAsync_UnknownJob_Throws()
+    {
+        _jobRepository.GetByIdAsync(Arg.Any<Guid>()).Returns((Job?)null);
+
+        var act = async () => await _sut.GetStatusHistoryAsync(Guid.NewGuid());
+
+        await act.Should().ThrowAsync<KeyNotFoundException>();
+    }
+
+    [Test]
+    public async Task UpdateStatusHistoryNoteAsync_WithKnownHistory_UpdatesNoteOnly()
+    {
+        var editor = MakeAdmin();
+        var job = Job.Create(Guid.NewGuid(), Guid.NewGuid(), "Leaking roof", "Description", JobSource.Manual, Guid.NewGuid(), Now);
+        var history = JobStatusHistory.Create(
+            Guid.NewGuid(),
+            job.Id,
+            JobStatus.Open,
+            JobStatus.Completed,
+            "Original",
+            Guid.NewGuid(),
+            Now);
+        var later = Now.AddDays(1);
+        var sut = new JobService(_jobRepository, _propertyRepository, _userRepository, new FixedTimeProvider(later));
+        _jobRepository.GetByIdAsync(job.Id).Returns(job);
+        _jobRepository.GetStatusHistoryByIdAsync(history.Id).Returns(history);
+        _userRepository.GetAllAsync().Returns([editor]);
+
+        var result = await sut.UpdateStatusHistoryNoteAsync(job.Id, history.Id, "  Corrected  ", editor.Id);
+
+        result.Note.Should().Be("Corrected");
+        result.NoteEditedByUserId.Should().Be(editor.Id);
+        result.NoteEditedAtUtc.Should().Be(later);
+        await _jobRepository.Received(1).UpdateStatusHistoryAsync(
+            Arg.Is<JobStatusHistory>(entry =>
+                entry.Id == history.Id
+                && entry.Note == "Corrected"
+                && entry.FromStatus == history.FromStatus
+                && entry.ToStatus == history.ToStatus
+                && entry.ChangedByUserId == history.ChangedByUserId
+                && entry.ChangedAtUtc == history.ChangedAtUtc
+                && entry.NoteEditedByUserId == editor.Id
+                && entry.NoteEditedAtUtc == later),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task UpdateStatusHistoryNoteAsync_WithHistoryForDifferentJob_Throws()
+    {
+        var job = Job.Create(Guid.NewGuid(), Guid.NewGuid(), "Leaking roof", "Description", JobSource.Manual, Guid.NewGuid(), Now);
+        var history = JobStatusHistory.Create(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            JobStatus.Open,
+            JobStatus.Completed,
+            null,
+            Guid.NewGuid(),
+            Now);
+        _jobRepository.GetByIdAsync(job.Id).Returns(job);
+        _jobRepository.GetStatusHistoryByIdAsync(history.Id).Returns(history);
+
+        var act = async () => await _sut.UpdateStatusHistoryNoteAsync(job.Id, history.Id, "Corrected", Guid.NewGuid());
+
+        await act.Should().ThrowAsync<KeyNotFoundException>();
+        await _jobRepository.DidNotReceive().UpdateStatusHistoryAsync(
+            Arg.Any<JobStatusHistory>(),
+            Arg.Any<CancellationToken>());
     }
 
     [Test]
