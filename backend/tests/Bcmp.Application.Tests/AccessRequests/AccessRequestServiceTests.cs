@@ -48,14 +48,16 @@ public class AccessRequestServiceTests
 
         result.Email.Should().Be("person@example.com");
         result.Status.Should().Be(AccessRequestStatus.Pending);
-        await _accessRequestRepository.Received(1).AddAsync(Arg.Is<AccessRequest>(request => request.Email == "person@example.com"), Arg.Any<CancellationToken>());
+        await _accessRequestRepository.Received(1).AddAsync(
+            Arg.Is<AccessRequest>(request => request.Email == "person@example.com"),
+            Arg.Any<CancellationToken>());
         await _userRepository.DidNotReceive().AddAsync(Arg.Any<User>(), Arg.Any<CancellationToken>());
     }
 
     [Test]
     public async Task SubmitAsync_WithDisabledExistingUser_CreatesReactivationRequest()
     {
-        var user = User.Create(Guid.NewGuid(), "person@example.com", "Pat Person", UserRole.Trustee, Now) with { IsEnabled = false };
+        var user = User.Create(Guid.NewGuid(), "person@example.com", "Pat Person", Now) with { IsEnabled = false };
         _accessRequestRepository.GetPendingByEmailAsync(user.Email).Returns((AccessRequest?)null);
         _userRepository.GetByEmailAsync(user.Email).Returns(user);
 
@@ -78,7 +80,7 @@ public class AccessRequestServiceTests
     [Test]
     public async Task SubmitAsync_WithEnabledExistingUser_CreatesAdminReviewRequest()
     {
-        var user = User.Create(Guid.NewGuid(), "person@example.com", "Pat Person", UserRole.Trustee, Now);
+        var user = User.Create(Guid.NewGuid(), "person@example.com", "Pat Person", Now);
         _accessRequestRepository.GetPendingByEmailAsync(user.Email).Returns((AccessRequest?)null);
         _userRepository.GetByEmailAsync(user.Email).Returns(user);
 
@@ -125,7 +127,7 @@ public class AccessRequestServiceTests
     }
 
     [Test]
-    public async Task ApproveAsync_WithPendingRequest_CreatesUserAndMarksApproved()
+    public async Task ApproveAsync_WithPendingRequest_CreatesTrusteeAndMarksApproved()
     {
         var request = AccessRequest.Create(
             Guid.NewGuid(),
@@ -143,8 +145,7 @@ public class AccessRequestServiceTests
 
         var result = await _sut.ApproveAsync(
             request.Id,
-            UserRole.Trustee,
-            [UserPermission.LoadJobs],
+            isPortalAdmin: true,
             "password123",
             reviewerId,
             "Approved");
@@ -154,8 +155,8 @@ public class AccessRequestServiceTests
         await _userRepository.Received(1).AddAsync(
             Arg.Is<User>(user =>
                 user.Email == request.Email
-                && user.PasswordHash == "hashed-password"
-                && user.Permissions == UserPermission.LoadJobs),
+                && user.IsPortalAdmin
+                && user.PasswordHash == "hashed-password"),
             Arg.Any<CancellationToken>());
         await _accessRequestRepository.Received(1).UpdateAsync(
             Arg.Is<AccessRequest>(updated => updated.Status == AccessRequestStatus.Approved && updated.ApprovedUserId.HasValue),
@@ -165,7 +166,7 @@ public class AccessRequestServiceTests
     [Test]
     public async Task ApproveAsync_WithExistingDisabledUser_ReactivatesExistingUser()
     {
-        var user = User.Create(Guid.NewGuid(), "person@example.com", "Pat Person", UserRole.Trustee, Now) with { IsEnabled = false };
+        var user = User.Create(Guid.NewGuid(), "person@example.com", "Pat Person", Now) with { IsEnabled = false };
         var request = AccessRequest.Create(
             Guid.NewGuid(),
             user.Email,
@@ -181,8 +182,7 @@ public class AccessRequestServiceTests
 
         var result = await _sut.ApproveAsync(
             request.Id,
-            UserRole.Trustee,
-            [UserPermission.LoadJobs],
+            isPortalAdmin: false,
             password: null,
             reviewedByUserId: Guid.NewGuid(),
             reviewNote: null);
@@ -191,7 +191,7 @@ public class AccessRequestServiceTests
         result.ApprovedUserId.Should().Be(user.Id);
         await _userRepository.DidNotReceive().AddAsync(Arg.Any<User>(), Arg.Any<CancellationToken>());
         await _userRepository.Received(1).UpdateAsync(
-            Arg.Is<User>(updated => updated.Id == user.Id && updated.IsEnabled && updated.Permissions == UserPermission.LoadJobs),
+            Arg.Is<User>(updated => updated.Id == user.Id && updated.IsEnabled && !updated.IsPortalAdmin),
             Arg.Any<CancellationToken>());
     }
 

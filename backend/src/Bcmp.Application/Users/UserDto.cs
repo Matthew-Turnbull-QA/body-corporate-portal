@@ -6,8 +6,7 @@ public sealed record UserDto(
     Guid Id,
     string Email,
     string DisplayName,
-    UserRole Role,
-    IReadOnlyList<UserPermission> Permissions,
+    bool IsPortalAdmin,
     bool HasLocalPassword,
     bool IsEnabled,
     DateTimeOffset CreatedAtUtc,
@@ -17,15 +16,9 @@ public sealed record UserDto(
         user.Id,
         user.Email,
         user.DisplayName,
-        user.Role,
-        ExpandPermissions(user.Permissions),
+        user.IsPortalAdmin,
         user.PasswordHash is not null,
         user.IsEnabled,
         user.CreatedAtUtc,
         user.LastLoginAtUtc);
-
-    private static IReadOnlyList<UserPermission> ExpandPermissions(UserPermission permissions) =>
-        Enum.GetValues<UserPermission>()
-            .Where(permission => permission != UserPermission.None && permissions.HasFlag(permission))
-            .ToList();
 }

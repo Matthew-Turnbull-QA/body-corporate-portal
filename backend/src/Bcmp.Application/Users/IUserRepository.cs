@@ -11,7 +11,7 @@ public interface IUserRepository
 
     Task<IReadOnlyList<User>> GetAllAsync(CancellationToken cancellationToken = default);
 
-    Task<int> CountEnabledAdministratorsAsync(CancellationToken cancellationToken = default);
+    Task<int> CountEnabledPortalAdminsAsync(CancellationToken cancellationToken = default);
 
     Task AddAsync(User user, CancellationToken cancellationToken = default);
 

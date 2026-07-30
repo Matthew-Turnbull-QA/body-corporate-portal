@@ -1,15 +1,14 @@
 import { Navigate, Outlet } from "react-router-dom";
 import { useAuth } from "./AuthContext";
-import type { UserRole } from "./types";
 
-export function RequireRole({ role }: { role: UserRole }) {
+export function RequirePortalAdmin() {
   const { user } = useAuth();
 
   if (!user) {
     return <Navigate to="/login" replace />;
   }
 
-  if (user.role !== role) {
+  if (!user.isPortalAdmin) {
     return <Navigate to="/" replace />;
   }
 

@@ -1,19 +1,11 @@
 import { useEffect, useState, type FormEvent } from "react";
-import {
-  allJobPermissions,
-  defaultPermissionsForRole,
-  jobPermissionLabels,
-  type UserDto,
-  type UserPermission,
-  type UserRole,
-} from "../auth/types";
+import type { UserDto } from "../auth/types";
 
 interface EditUserDialogProps {
   user: UserDto;
   onSubmit: (values: {
     displayName: string;
-    role: UserRole;
-    permissions: UserPermission[];
+    isPortalAdmin: boolean;
     newPassword: string | null;
   }) => Promise<void>;
   onClose: () => void;
@@ -21,8 +13,7 @@ interface EditUserDialogProps {
 
 export function EditUserDialog({ user, onSubmit, onClose }: EditUserDialogProps) {
   const [displayName, setDisplayName] = useState(user.displayName);
-  const [role, setRole] = useState<UserRole>(user.role);
-  const [permissions, setPermissions] = useState<UserPermission[]>(user.permissions);
+  const [isPortalAdmin, setIsPortalAdmin] = useState(user.isPortalAdmin);
   const [newPassword, setNewPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -43,24 +34,13 @@ export function EditUserDialog({ user, onSubmit, onClose }: EditUserDialogProps)
     setError(null);
     setIsSubmitting(true);
     try {
-      await onSubmit({ displayName, role, permissions, newPassword: newPassword.trim() || null });
+      await onSubmit({ displayName, isPortalAdmin, newPassword: newPassword.trim() || null });
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to update user.");
     } finally {
       setIsSubmitting(false);
     }
-  }
-
-  function handleRoleChange(nextRole: UserRole) {
-    setRole(nextRole);
-    setPermissions(defaultPermissionsForRole(nextRole));
-  }
-
-  function togglePermission(permission: UserPermission) {
-    setPermissions((current) =>
-      current.includes(permission) ? current.filter((item) => item !== permission) : [...current, permission],
-    );
   }
 
   return (
@@ -71,28 +51,14 @@ export function EditUserDialog({ user, onSubmit, onClose }: EditUserDialogProps)
           Display name
           <input required value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
         </label>
-        <label className="dialog__field">
-          Role
-          <select value={role} onChange={(e) => handleRoleChange(e.target.value as UserRole)}>
-            <option value="Trustee">Trustee</option>
-            <option value="Administrator">Administrator</option>
-          </select>
+        <label className="checkbox-option">
+          <input
+            type="checkbox"
+            checked={isPortalAdmin}
+            onChange={(event) => setIsPortalAdmin(event.target.checked)}
+          />
+          Portal admin
         </label>
-        <fieldset className="dialog__fieldset">
-          <legend>Job permissions</legend>
-          <div className="checkbox-grid">
-            {allJobPermissions.map((permission) => (
-              <label key={permission} className="checkbox-option">
-                <input
-                  type="checkbox"
-                  checked={permissions.includes(permission)}
-                  onChange={() => togglePermission(permission)}
-                />
-                {jobPermissionLabels[permission]}
-              </label>
-            ))}
-          </div>
-        </fieldset>
         <label className="dialog__field">
           New local password
           <input
@@ -112,7 +78,7 @@ export function EditUserDialog({ user, onSubmit, onClose }: EditUserDialogProps)
             Cancel
           </button>
           <button className="button button--primary" type="submit" disabled={isSubmitting}>
-            {isSubmitting ? "Saving…" : "Save"}
+            {isSubmitting ? "Saving..." : "Save"}
           </button>
         </div>
       </form>

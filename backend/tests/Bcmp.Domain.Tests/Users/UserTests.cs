@@ -9,14 +9,13 @@ public class UserTests
     private static readonly DateTimeOffset CreatedAtUtc = new(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
 
     [Test]
-    public void Create_WithValidData_ReturnsEnabledUser()
+    public void Create_WithValidData_ReturnsEnabledTrustee()
     {
-        var user = User.Create(Guid.NewGuid(), "Trustee@Example.com", "  Jane Trustee  ", UserRole.Trustee, CreatedAtUtc);
+        var user = User.Create(Guid.NewGuid(), "Trustee@Example.com", "  Jane Trustee  ", CreatedAtUtc);
 
         user.Email.Should().Be("trustee@example.com");
         user.DisplayName.Should().Be("Jane Trustee");
-        user.Role.Should().Be(UserRole.Trustee);
-        user.Permissions.Should().Be(UserPermission.LoadJobs | UserPermission.CreateJobs | UserPermission.UpdateJobStatus);
+        user.IsPortalAdmin.Should().BeFalse();
         user.PasswordHash.Should().BeNull();
         user.IsEnabled.Should().BeTrue();
         user.CreatedAtUtc.Should().Be(CreatedAtUtc);
@@ -24,11 +23,11 @@ public class UserTests
     }
 
     [Test]
-    public void Create_WithAdministratorRole_GetsDefaultAdministratorJobPermissions()
+    public void Create_WithPortalAdminFlag_ReturnsPortalAdminTrustee()
     {
-        var user = User.Create(Guid.NewGuid(), "Admin@Example.com", "Admin", UserRole.Administrator, CreatedAtUtc);
+        var user = User.Create(Guid.NewGuid(), "Admin@Example.com", "Admin", CreatedAtUtc, isPortalAdmin: true);
 
-        user.Permissions.Should().Be(UserPermission.LoadJobs | UserPermission.CreateJobs | UserPermission.UpdateJobStatus | UserPermission.AssignJobs);
+        user.IsPortalAdmin.Should().BeTrue();
     }
 
     [TestCase("")]
@@ -36,7 +35,7 @@ public class UserTests
     [TestCase(null)]
     public void Create_WithEmptyEmail_Throws(string? email)
     {
-        var act = () => User.Create(Guid.NewGuid(), email!, "Jane Trustee", UserRole.Trustee, CreatedAtUtc);
+        var act = () => User.Create(Guid.NewGuid(), email!, "Jane Trustee", CreatedAtUtc);
 
         act.Should().Throw<ArgumentException>().WithParameterName("email");
     }
@@ -46,7 +45,7 @@ public class UserTests
     [TestCase(null)]
     public void Create_WithEmptyDisplayName_Throws(string? displayName)
     {
-        var act = () => User.Create(Guid.NewGuid(), "trustee@example.com", displayName!, UserRole.Trustee, CreatedAtUtc);
+        var act = () => User.Create(Guid.NewGuid(), "trustee@example.com", displayName!, CreatedAtUtc);
 
         act.Should().Throw<ArgumentException>().WithParameterName("displayName");
     }

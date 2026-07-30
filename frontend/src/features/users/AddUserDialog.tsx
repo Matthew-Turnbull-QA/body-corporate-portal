@@ -1,18 +1,10 @@
 import { useEffect, useState, type FormEvent } from "react";
-import {
-  allJobPermissions,
-  defaultPermissionsForRole,
-  jobPermissionLabels,
-  type UserPermission,
-  type UserRole,
-} from "../auth/types";
 
 interface AddUserDialogProps {
   onSubmit: (values: {
     email: string;
     displayName: string;
-    role: UserRole;
-    permissions: UserPermission[];
+    isPortalAdmin: boolean;
     password: string | null;
   }) => Promise<void>;
   onClose: () => void;
@@ -21,8 +13,7 @@ interface AddUserDialogProps {
 export function AddUserDialog({ onSubmit, onClose }: AddUserDialogProps) {
   const [email, setEmail] = useState("");
   const [displayName, setDisplayName] = useState("");
-  const [role, setRole] = useState<UserRole>("Trustee");
-  const [permissions, setPermissions] = useState<UserPermission[]>(defaultPermissionsForRole("Trustee"));
+  const [isPortalAdmin, setIsPortalAdmin] = useState(false);
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -43,7 +34,7 @@ export function AddUserDialog({ onSubmit, onClose }: AddUserDialogProps) {
     setError(null);
     setIsSubmitting(true);
     try {
-      await onSubmit({ email, displayName, role, permissions, password: password.trim() || null });
+      await onSubmit({ email, displayName, isPortalAdmin, password: password.trim() || null });
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to add user.");
@@ -52,21 +43,10 @@ export function AddUserDialog({ onSubmit, onClose }: AddUserDialogProps) {
     }
   }
 
-  function handleRoleChange(nextRole: UserRole) {
-    setRole(nextRole);
-    setPermissions(defaultPermissionsForRole(nextRole));
-  }
-
-  function togglePermission(permission: UserPermission) {
-    setPermissions((current) =>
-      current.includes(permission) ? current.filter((item) => item !== permission) : [...current, permission],
-    );
-  }
-
   return (
     <div className="dialog-overlay" role="dialog" aria-modal="true" onClick={onClose}>
       <form className="dialog" onClick={(event) => event.stopPropagation()} onSubmit={handleSubmit}>
-        <h3>Add user</h3>
+        <h3>Add trustee</h3>
         <label className="dialog__field">
           Email
           <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
@@ -75,28 +55,14 @@ export function AddUserDialog({ onSubmit, onClose }: AddUserDialogProps) {
           Display name
           <input required value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
         </label>
-        <label className="dialog__field">
-          Role
-          <select value={role} onChange={(e) => handleRoleChange(e.target.value as UserRole)}>
-            <option value="Trustee">Trustee</option>
-            <option value="Administrator">Administrator</option>
-          </select>
+        <label className="checkbox-option">
+          <input
+            type="checkbox"
+            checked={isPortalAdmin}
+            onChange={(event) => setIsPortalAdmin(event.target.checked)}
+          />
+          Portal admin
         </label>
-        <fieldset className="dialog__fieldset">
-          <legend>Job permissions</legend>
-          <div className="checkbox-grid">
-            {allJobPermissions.map((permission) => (
-              <label key={permission} className="checkbox-option">
-                <input
-                  type="checkbox"
-                  checked={permissions.includes(permission)}
-                  onChange={() => togglePermission(permission)}
-                />
-                {jobPermissionLabels[permission]}
-              </label>
-            ))}
-          </div>
-        </fieldset>
         <label className="dialog__field">
           Local password
           <input
@@ -116,7 +82,7 @@ export function AddUserDialog({ onSubmit, onClose }: AddUserDialogProps) {
             Cancel
           </button>
           <button className="button button--primary" type="submit" disabled={isSubmitting}>
-            {isSubmitting ? "Adding…" : "Add"}
+            {isSubmitting ? "Adding..." : "Add"}
           </button>
         </div>
       </form>

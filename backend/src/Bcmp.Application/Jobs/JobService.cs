@@ -1,7 +1,7 @@
+using Bcmp.Application.Authorization;
 using Bcmp.Application.Properties;
 using Bcmp.Application.Users;
 using Bcmp.Domain.Jobs;
-using Bcmp.Domain.Users;
 
 namespace Bcmp.Application.Jobs;
 
@@ -51,9 +51,35 @@ public sealed class JobService(
         var property = await propertyRepository.GetByIdAsync(propertyId, cancellationToken)
             ?? throw new KeyNotFoundException($"Property '{propertyId}' was not found.");
 
+        _ = await GetEnabledUserAsync(createdByUserId, cancellationToken);
+        var assignedTrustee = await GetNextRoundRobinTrusteeAsync(cancellationToken);
         var job = Job.Create(Guid.NewGuid(), propertyId, title, description, source, createdByUserId, timeProvider.GetUtcNow());
+        job = job with { AssignedTrusteeUserId = assignedTrustee.Id };
         await jobRepository.AddAsync(job, cancellationToken);
-        return JobDto.FromDomain(job, property.Name);
+        return JobDto.FromDomain(job, property.Name, assignedTrustee.DisplayName);
+    }
+
+    public async Task<JobDto> UpdateJobAsync(
+        Guid id,
+        Guid propertyId,
+        string title,
+        string? description,
+        Guid updatedByUserId,
+        CancellationToken cancellationToken = default)
+    {
+        var job = await jobRepository.GetByIdAsync(id, cancellationToken)
+            ?? throw new KeyNotFoundException($"Job '{id}' was not found.");
+
+        await EnsureCanMutateJobAsync(job, updatedByUserId, cancellationToken);
+
+        var property = await propertyRepository.GetByIdAsync(propertyId, cancellationToken)
+            ?? throw new KeyNotFoundException($"Property '{propertyId}' was not found.");
+
+        var updated = job.WithDetails(propertyId, title, description, timeProvider.GetUtcNow());
+        await jobRepository.UpdateAsync(updated, cancellationToken);
+
+        var trusteeName = await ResolveTrusteeNameAsync(updated.AssignedTrusteeUserId, cancellationToken);
+        return JobDto.FromDomain(updated, property.Name, trusteeName);
     }
 
     public async Task<JobDto> UpdateStatusAsync(
@@ -65,6 +91,8 @@ public sealed class JobService(
     {
         var job = await jobRepository.GetByIdAsync(id, cancellationToken)
             ?? throw new KeyNotFoundException($"Job '{id}' was not found.");
+
+        await EnsureCanMutateJobAsync(job, changedByUserId, cancellationToken);
 
         if (job.Status == status)
         {
@@ -99,8 +127,10 @@ public sealed class JobService(
         Guid editedByUserId,
         CancellationToken cancellationToken = default)
     {
-        _ = await jobRepository.GetByIdAsync(jobId, cancellationToken)
+        var job = await jobRepository.GetByIdAsync(jobId, cancellationToken)
             ?? throw new KeyNotFoundException($"Job '{jobId}' was not found.");
+
+        await EnsureCanMutateJobAsync(job, editedByUserId, cancellationToken);
 
         var history = await jobRepository.GetStatusHistoryByIdAsync(historyId, cancellationToken)
             ?? throw new KeyNotFoundException($"Status history '{historyId}' was not found.");
@@ -117,10 +147,20 @@ public sealed class JobService(
         return mapped.Single();
     }
 
-    public async Task<JobDto> AssignTrusteeAsync(Guid id, Guid? trusteeUserId, CancellationToken cancellationToken = default)
+    public async Task<JobDto> AssignTrusteeAsync(
+        Guid id,
+        Guid? trusteeUserId,
+        Guid assignedByUserId,
+        CancellationToken cancellationToken = default)
     {
         var job = await jobRepository.GetByIdAsync(id, cancellationToken)
             ?? throw new KeyNotFoundException($"Job '{id}' was not found.");
+
+        var assignedBy = await GetEnabledUserAsync(assignedByUserId, cancellationToken);
+        if (!assignedBy.IsPortalAdmin)
+        {
+            throw new ForbiddenAccessException("Only portal admins can assign jobs.");
+        }
 
         string? trusteeName = null;
         if (trusteeUserId is not null)
@@ -128,9 +168,9 @@ public sealed class JobService(
             var trustee = await userRepository.GetByIdAsync(trusteeUserId.Value, cancellationToken)
                 ?? throw new KeyNotFoundException($"User '{trusteeUserId}' was not found.");
 
-            if (trustee.Role != UserRole.Trustee)
+            if (!trustee.IsEnabled)
             {
-                throw new ArgumentException($"User '{trusteeUserId}' is not a Trustee.", nameof(trusteeUserId));
+                throw new ArgumentException($"User '{trusteeUserId}' is not enabled.", nameof(trusteeUserId));
             }
 
             trusteeName = trustee.DisplayName;
@@ -152,6 +192,62 @@ public sealed class JobService(
 
         var trustee = await userRepository.GetByIdAsync(trusteeUserId.Value, cancellationToken);
         return trustee?.DisplayName ?? "Unknown user";
+    }
+
+    private async Task<Bcmp.Domain.Users.User> GetEnabledUserAsync(
+        Guid userId,
+        CancellationToken cancellationToken)
+    {
+        var user = await userRepository.GetByIdAsync(userId, cancellationToken)
+            ?? throw new UnauthorizedAccessException("The current user was not found.");
+
+        if (!user.IsEnabled)
+        {
+            throw new UnauthorizedAccessException("The current user is disabled.");
+        }
+
+        return user;
+    }
+
+    private async Task EnsureCanMutateJobAsync(Job job, Guid userId, CancellationToken cancellationToken)
+    {
+        var user = await GetEnabledUserAsync(userId, cancellationToken);
+        if (user.IsPortalAdmin || job.AssignedTrusteeUserId == user.Id)
+        {
+            return;
+        }
+
+        throw new ForbiddenAccessException("Only portal admins and the assigned trustee can update this job.");
+    }
+
+    private async Task<Bcmp.Domain.Users.User> GetNextRoundRobinTrusteeAsync(CancellationToken cancellationToken)
+    {
+        var eligibleUsers = (await userRepository.GetAllAsync(cancellationToken))
+            .Where(user => user.IsEnabled)
+            .OrderBy(user => user.CreatedAtUtc)
+            .ThenBy(user => user.Id)
+            .ToList();
+
+        if (eligibleUsers.Count == 0)
+        {
+            throw new InvalidOperationException("No enabled trustees are available for job assignment.");
+        }
+
+        var eligibleIds = eligibleUsers.Select(user => user.Id).ToHashSet();
+        var recentAssignedJob = (await jobRepository.GetAllAsync(cancellationToken))
+            .Where(job => job.AssignedTrusteeUserId is Guid trusteeId && eligibleIds.Contains(trusteeId))
+            .OrderByDescending(job => job.CreatedAtUtc)
+            .ThenByDescending(job => job.Id)
+            .FirstOrDefault();
+
+        if (recentAssignedJob?.AssignedTrusteeUserId is not Guid lastTrusteeId)
+        {
+            return eligibleUsers[0];
+        }
+
+        var currentIndex = eligibleUsers.FindIndex(user => user.Id == lastTrusteeId);
+        var nextIndex = currentIndex < 0 ? 0 : (currentIndex + 1) % eligibleUsers.Count;
+        return eligibleUsers[nextIndex];
     }
 
     private async Task<IReadOnlyList<JobStatusHistoryDto>> MapStatusHistoryAsync(

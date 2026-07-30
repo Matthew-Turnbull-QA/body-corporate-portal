@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useAuth } from "../auth/AuthContext";
-import { jobPermissionLabels, type UserDto } from "../auth/types";
+import type { UserDto } from "../auth/types";
 import { AddUserDialog } from "./AddUserDialog";
 import { EditUserDialog } from "./EditUserDialog";
 import { useCreateUser, useDisableUser, useEnableUser, useUpdateUser, useUsers } from "./useUsers";
@@ -40,8 +40,7 @@ export function UsersListPage() {
               <tr>
                 <th>Email</th>
                 <th>Name</th>
-                <th>Role</th>
-                <th>Job permissions</th>
+                <th>Portal access</th>
                 <th>Local login</th>
                 <th>Status</th>
                 <th>Last login</th>
@@ -53,8 +52,7 @@ export function UsersListPage() {
                 <tr key={u.id}>
                   <td>{u.email}</td>
                   <td>{u.displayName}</td>
-                  <td>{u.role}</td>
-                  <td>{u.permissions.map((permission) => jobPermissionLabels[permission]).join(", ") || "None"}</td>
+                  <td>{u.isPortalAdmin ? "Portal admin" : "Trustee"}</td>
                   <td>{u.hasLocalPassword ? "Enabled" : "Not set"}</td>
                   <td>
                     <span className={`status-chip ${u.isEnabled ? "status-chip--enabled" : "status-chip--disabled"}`}>

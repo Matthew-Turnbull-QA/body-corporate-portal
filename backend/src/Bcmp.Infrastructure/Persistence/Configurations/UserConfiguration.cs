@@ -24,13 +24,7 @@ public sealed class UserConfiguration : IEntityTypeConfiguration<User>
             .IsRequired()
             .HasMaxLength(200);
 
-        builder.Property(u => u.Role)
-            .HasConversion<string>()
-            .HasMaxLength(50)
-            .IsRequired();
-
-        builder.Property(u => u.Permissions)
-            .HasConversion<int>()
+        builder.Property(u => u.IsPortalAdmin)
             .IsRequired();
 
         builder.Property(u => u.PasswordHash)

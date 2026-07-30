@@ -15,8 +15,8 @@ public sealed class UserRepository(AppDbContext dbContext) : IUserRepository
     public async Task<IReadOnlyList<User>> GetAllAsync(CancellationToken cancellationToken = default) =>
         await dbContext.Users.OrderBy(u => u.DisplayName).ToListAsync(cancellationToken);
 
-    public Task<int> CountEnabledAdministratorsAsync(CancellationToken cancellationToken = default) =>
-        dbContext.Users.CountAsync(u => u.Role == UserRole.Administrator && u.IsEnabled, cancellationToken);
+    public Task<int> CountEnabledPortalAdminsAsync(CancellationToken cancellationToken = default) =>
+        dbContext.Users.CountAsync(u => u.IsPortalAdmin && u.IsEnabled, cancellationToken);
 
     public async Task AddAsync(User user, CancellationToken cancellationToken = default)
     {

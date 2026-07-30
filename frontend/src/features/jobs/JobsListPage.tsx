@@ -1,6 +1,13 @@
-import { Fragment, useEffect, useMemo, useState, type CSSProperties, type FormEvent } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type CSSProperties,
+  type FormEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type MouseEvent as ReactMouseEvent,
+} from "react";
 import { useAuth } from "../auth/AuthContext";
-import { hasPermission } from "../auth/types";
 import { useProperties } from "../properties/useProperties";
 import { useAssignableTrustees } from "../users/useUsers";
 import {
@@ -8,6 +15,7 @@ import {
   useCreateJob,
   useJobs,
   useJobStatusHistory,
+  useUpdateJob,
   useUpdateJobStatus,
   useUpdateJobStatusHistoryNote,
 } from "./useJobs";
@@ -52,6 +60,12 @@ interface StatusChangeDraft {
   job: JobDto;
   nextStatus: JobStatus;
   note: string;
+}
+
+interface EditJobDraft {
+  propertyId: string;
+  title: string;
+  description: string;
 }
 
 interface TableColumnStyle {
@@ -111,11 +125,11 @@ function buildTableColumnStyles(jobs: JobDto[], trusteeNames: string[]): TableCo
     { key: "assignedTrusteeName", style: { width: columnWidth(assignedLength, 16, 28) } },
     { key: "createdAtUtc", style: { width: columnWidth(createdLength, 22, 28) } },
     { key: "updatedAtUtc", style: { width: columnWidth(updatedLength, 22, 30) } },
-    { key: "actions", style: { width: canUpdateActionsWidth } },
+    { key: "actions", style: { width: actionsWidth } },
   ];
 }
 
-const canUpdateActionsWidth = "28ch";
+const actionsWidth = "18ch";
 
 function JobStatusHistoryPanel({
   job,
@@ -236,25 +250,26 @@ function JobStatusHistoryPanel({
 
 export function JobsListPage() {
   const { user } = useAuth();
-  const canCreateJobs = hasPermission(user, "CreateJobs");
-  const canUpdateJobStatus = hasPermission(user, "UpdateJobStatus");
-  const canAssignJobs = hasPermission(user, "AssignJobs");
-  const canEditHistory = user?.role === "Administrator";
+  const canCreateJobs = Boolean(user);
+  const canAssignJobs = user?.isPortalAdmin ?? false;
   const { data: jobs, isLoading, error } = useJobs();
   const { data: properties } = useProperties();
   const { data: trustees } = useAssignableTrustees(canAssignJobs);
   const createJob = useCreateJob();
+  const updateJob = useUpdateJob();
   const updateJobStatus = useUpdateJobStatus();
   const assignTrustee = useAssignTrustee();
   const [isAdding, setIsAdding] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [sortKey, setSortKey] = useState<SortKey>("createdAtUtc");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
-  const [expandedJobId, setExpandedJobId] = useState<string | null>(null);
   const [statusChangeDraft, setStatusChangeDraft] = useState<StatusChangeDraft | null>(null);
+  const [selectedJob, setSelectedJob] = useState<JobDto | null>(null);
+  const [isDetailEditing, setIsDetailEditing] = useState(false);
+  const [detailEditDraft, setDetailEditDraft] = useState<EditJobDraft>(emptyForm);
 
   useEffect(() => {
-    if (!isAdding && !statusChangeDraft) {
+    if (!isAdding && !statusChangeDraft && !selectedJob) {
       return;
     }
 
@@ -265,6 +280,8 @@ export function JobsListPage() {
 
       if (statusChangeDraft) {
         setStatusChangeDraft(null);
+      } else if (selectedJob) {
+        closeJobDetail();
       } else {
         setIsAdding(false);
       }
@@ -272,7 +289,7 @@ export function JobsListPage() {
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [isAdding, statusChangeDraft]);
+  }, [isAdding, statusChangeDraft, selectedJob]);
 
   function toggleSort(key: SortKey) {
     if (key === sortKey) {
@@ -321,6 +338,78 @@ export function JobsListPage() {
     }
   }
 
+  function openJobDetail(job: JobDto) {
+    setSelectedJob(job);
+    setIsDetailEditing(false);
+    setDetailEditDraft({
+      propertyId: job.propertyId,
+      title: job.title,
+      description: job.description,
+    });
+  }
+
+  function isRowControl(target: EventTarget | null) {
+    return target instanceof HTMLElement && Boolean(target.closest("button, select, input, textarea, a"));
+  }
+
+  function handleJobRowClick(job: JobDto, event: ReactMouseEvent<HTMLTableRowElement>) {
+    if (isRowControl(event.target)) {
+      return;
+    }
+
+    openJobDetail(job);
+  }
+
+  function handleJobRowKeyDown(job: JobDto, event: ReactKeyboardEvent<HTMLTableRowElement>) {
+    if (event.currentTarget !== event.target || (event.key !== "Enter" && event.key !== " ")) {
+      return;
+    }
+
+    event.preventDefault();
+    openJobDetail(job);
+  }
+
+  function closeJobDetail() {
+    setSelectedJob(null);
+    setIsDetailEditing(false);
+    setDetailEditDraft(emptyForm);
+  }
+
+  function startDetailEditing(job: JobDto) {
+    setDetailEditDraft({
+      propertyId: job.propertyId,
+      title: job.title,
+      description: job.description,
+    });
+    setIsDetailEditing(true);
+  }
+
+  async function handleDetailEditSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!selectedJob) {
+      return;
+    }
+
+    try {
+      const updated = await updateJob.mutateAsync({
+        id: selectedJob.id,
+        request: {
+          propertyId: detailEditDraft.propertyId,
+          title: detailEditDraft.title,
+          description: detailEditDraft.description,
+        },
+      });
+      setSelectedJob(updated);
+      setIsDetailEditing(false);
+    } catch {
+      // Mutation state renders the error inside the modal.
+    }
+  }
+
+  function canMutateJob(job: JobDto) {
+    return Boolean(user && (user.isPortalAdmin || job.assignedTrusteeUserId === user.id));
+  }
+
   function renderHeaderRow() {
     return (
       <tr>
@@ -360,12 +449,22 @@ export function JobsListPage() {
   }
 
   function renderJobRows(job: JobDto) {
-    const isExpanded = expandedJobId === job.id;
+    const canUpdateThisJob = canMutateJob(job);
 
     return (
-      <Fragment key={job.id}>
-        <tr>
-          <td>{job.title}</td>
+      <tr
+        className="jobs-table__row"
+        key={job.id}
+        tabIndex={0}
+        onClick={(event) => handleJobRowClick(job, event)}
+        onKeyDown={(event) => handleJobRowKeyDown(job, event)}
+        aria-label={`Open details for ${job.title}`}
+      >
+          <td>
+            <button className="job-title-button" type="button" onClick={() => openJobDetail(job)}>
+              {job.title}
+            </button>
+          </td>
           <td>{job.propertyName}</td>
           <td>
             <span className={`status-chip ${statusChipClass[job.status]}`}>{statusLabels[job.status]}</span>
@@ -394,15 +493,7 @@ export function JobsListPage() {
           <td>{formatDateTime(job.updatedAtUtc)}</td>
           <td>
             <div className="table-actions">
-              <button
-                className="button button--ghost table-actions__button"
-                type="button"
-                onClick={() => setExpandedJobId((current) => (current === job.id ? null : job.id))}
-                aria-expanded={isExpanded}
-              >
-                History
-              </button>
-              {canUpdateJobStatus ? (
+              {canUpdateThisJob && (
                 <select
                   className="job-status-select"
                   value={job.status}
@@ -419,20 +510,127 @@ export function JobsListPage() {
                     </option>
                   ))}
                 </select>
-              ) : (
-                <span className="text-muted">{statusLabels[job.status]}</span>
               )}
             </div>
           </td>
         </tr>
-        {isExpanded && (
-          <tr className="history-row">
-            <td colSpan={columns.length + 1}>
-              <JobStatusHistoryPanel job={job} canEditHistory={canEditHistory} />
-            </td>
-          </tr>
-        )}
-      </Fragment>
+    );
+  }
+
+  function renderJobDetailModal(job: JobDto) {
+    const canUpdateThisJob = canMutateJob(job);
+
+    return (
+      <div className="dialog-overlay" role="dialog" aria-modal="true" onClick={closeJobDetail}>
+        <div className="dialog dialog--large job-detail-modal" onClick={(event) => event.stopPropagation()}>
+          <div className="job-detail-modal__header">
+            <div>
+              <span className={`status-chip ${statusChipClass[job.status]}`}>{statusLabels[job.status]}</span>
+              <h3>{job.title}</h3>
+              <p className="text-muted">{job.propertyName}</p>
+            </div>
+            <div className="job-detail-modal__actions">
+              {canUpdateThisJob && !isDetailEditing && (
+                <button className="button button--ghost" type="button" onClick={() => startDetailEditing(job)}>
+                  Edit
+                </button>
+              )}
+              <button className="button button--ghost" type="button" onClick={closeJobDetail}>
+                Close
+              </button>
+            </div>
+          </div>
+
+          {isDetailEditing ? (
+            <form className="job-detail-edit" onSubmit={handleDetailEditSubmit}>
+              <label className="dialog__field">
+                Property
+                <select
+                  value={detailEditDraft.propertyId}
+                  onChange={(event) =>
+                    setDetailEditDraft((current) => ({ ...current, propertyId: event.target.value }))
+                  }
+                  required
+                >
+                  <option value="" disabled>
+                    Select a property
+                  </option>
+                  {properties?.map((property) => (
+                    <option key={property.id} value={property.id}>
+                      {property.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="dialog__field">
+                Title
+                <input
+                  value={detailEditDraft.title}
+                  onChange={(event) => setDetailEditDraft((current) => ({ ...current, title: event.target.value }))}
+                  required
+                />
+              </label>
+              <label className="dialog__field">
+                Description
+                <textarea
+                  value={detailEditDraft.description}
+                  onChange={(event) =>
+                    setDetailEditDraft((current) => ({ ...current, description: event.target.value }))
+                  }
+                  rows={4}
+                />
+              </label>
+              {updateJob.isError && (
+                <p className="error-banner" role="alert">
+                  Failed to update job.
+                </p>
+              )}
+              <div className="dialog__actions">
+                <button className="button button--ghost" type="button" onClick={() => setIsDetailEditing(false)}>
+                  Cancel
+                </button>
+                <button className="button button--primary" type="submit" disabled={updateJob.isPending}>
+                  Save
+                </button>
+              </div>
+            </form>
+          ) : (
+            <div className="job-detail-body">
+              <dl className="job-detail-grid">
+                <div>
+                  <dt>Assigned to</dt>
+                  <dd>{job.assignedTrusteeName ?? "Unassigned"}</dd>
+                </div>
+                <div>
+                  <dt>Created</dt>
+                  <dd>{formatDateTime(job.createdAtUtc)}</dd>
+                </div>
+                <div>
+                  <dt>Last updated</dt>
+                  <dd>{formatDateTime(job.updatedAtUtc)}</dd>
+                </div>
+                <div>
+                  <dt>Source</dt>
+                  <dd>{job.source}</dd>
+                </div>
+              </dl>
+              <section className="job-detail-description">
+                <h4>Description</h4>
+                <p>{job.description || "No description."}</p>
+              </section>
+            </div>
+          )}
+
+          <section className="job-detail-history">
+            <div className="job-detail-history__header">
+              <h4>Notes & history</h4>
+            </div>
+            <div className="job-detail-history__scroll">
+              <JobStatusHistoryPanel job={job} canEditHistory={canUpdateThisJob} />
+            </div>
+          </section>
+        </div>
+      </div>
     );
   }
 
@@ -447,7 +645,7 @@ export function JobsListPage() {
           disabled={!canCreateJobs || !properties || properties.length === 0}
           title={
             !canCreateJobs
-              ? "You do not have permission to create jobs"
+              ? "Sign in before creating jobs"
               : !properties || properties.length === 0
                 ? "Add a property before creating a job"
                 : undefined
@@ -599,6 +797,8 @@ export function JobsListPage() {
           </form>
         </div>
       )}
+
+      {selectedJob && renderJobDetailModal(selectedJob)}
     </section>
   );
 }

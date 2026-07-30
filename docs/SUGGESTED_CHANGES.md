@@ -1,6 +1,6 @@
 # Suggested Changes Log
 
-Last updated: 2026-07-29
+Last updated: 2026-07-30
 
 Use this as the running list for click-through notes, UX polish, bugs, and feature ideas. Keep entries small and actionable so we can promote them into implementation work when ready.
 
@@ -17,6 +17,7 @@ Use this as the running list for click-through notes, UX polish, bugs, and featu
 | Done | Jobs | Treat Cancelled as closed rather than active. | Implemented 2026-07-29: Jobs page now groups `Completed` and `Cancelled` under Closed. |
 | Done | Jobs | Ask for optional notes when changing status. | Implemented 2026-07-29: status select opens a confirmation modal with optional notes before saving. |
 | Done | Jobs | Track status-change audit history and allow admin note edits. | Implemented 2026-07-29: `JobStatusHistory` records transitions, all users with `LoadJobs` can view history, and Administrators can edit notes while immutable audit fields remain unchanged. |
+| New | Users | Show whether each user has a local password set. | Add a read-only field/tag to the Users screen so portal admins can tell whether password sign-in is configured for a user. |
 
 ## Status Key
 

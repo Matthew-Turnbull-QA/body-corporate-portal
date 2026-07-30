@@ -14,6 +14,8 @@ public sealed class JobsController(IJobService jobService) : ControllerBase
 {
     public sealed record CreateJobRequest(Guid PropertyId, string Title, string? Description);
 
+    public sealed record UpdateJobRequest(Guid PropertyId, string Title, string? Description);
+
     public sealed record UpdateJobStatusRequest(JobStatus Status, string? Note);
 
     public sealed record AssignTrusteeRequest(Guid? TrusteeUserId);
@@ -21,7 +23,6 @@ public sealed class JobsController(IJobService jobService) : ControllerBase
     public sealed record UpdateStatusHistoryNoteRequest(string? Note);
 
     [HttpGet]
-    [Authorize(Policy = AuthorizationPolicyNames.RequireJobLoad)]
     public async Task<IActionResult> GetAll(CancellationToken cancellationToken)
     {
         var jobs = await jobService.GetAllAsync(cancellationToken);
@@ -29,7 +30,6 @@ public sealed class JobsController(IJobService jobService) : ControllerBase
     }
 
     [HttpGet("{id:guid}")]
-    [Authorize(Policy = AuthorizationPolicyNames.RequireJobLoad)]
     public async Task<IActionResult> GetById(Guid id, CancellationToken cancellationToken)
     {
         var job = await jobService.GetByIdAsync(id, cancellationToken);
@@ -37,7 +37,6 @@ public sealed class JobsController(IJobService jobService) : ControllerBase
     }
 
     [HttpPost]
-    [Authorize(Policy = AuthorizationPolicyNames.RequireJobCreate)]
     public async Task<IActionResult> Create(CreateJobRequest request, CancellationToken cancellationToken)
     {
         var userId = GetCurrentUserId();
@@ -50,8 +49,26 @@ public sealed class JobsController(IJobService jobService) : ControllerBase
         return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
     }
 
+    [HttpPut("{id:guid}")]
+    public async Task<IActionResult> Update(Guid id, UpdateJobRequest request, CancellationToken cancellationToken)
+    {
+        var userId = GetCurrentUserId();
+        if (userId is null)
+        {
+            return Unauthorized();
+        }
+
+        var updated = await jobService.UpdateJobAsync(
+            id,
+            request.PropertyId,
+            request.Title,
+            request.Description,
+            userId.Value,
+            cancellationToken);
+        return Ok(updated);
+    }
+
     [HttpPatch("{id:guid}/status")]
-    [Authorize(Policy = AuthorizationPolicyNames.RequireJobStatusUpdate)]
     public async Task<IActionResult> UpdateStatus(Guid id, UpdateJobStatusRequest request, CancellationToken cancellationToken)
     {
         var userId = GetCurrentUserId();
@@ -65,7 +82,6 @@ public sealed class JobsController(IJobService jobService) : ControllerBase
     }
 
     [HttpGet("{id:guid}/status-history")]
-    [Authorize(Policy = AuthorizationPolicyNames.RequireJobLoad)]
     public async Task<IActionResult> GetStatusHistory(Guid id, CancellationToken cancellationToken)
     {
         var history = await jobService.GetStatusHistoryAsync(id, cancellationToken);
@@ -73,7 +89,6 @@ public sealed class JobsController(IJobService jobService) : ControllerBase
     }
 
     [HttpPatch("{id:guid}/status-history/{historyId:guid}/note")]
-    [Authorize(Policy = AuthorizationPolicyNames.RequireAdministrator)]
     public async Task<IActionResult> UpdateStatusHistoryNote(
         Guid id,
         Guid historyId,
@@ -91,10 +106,15 @@ public sealed class JobsController(IJobService jobService) : ControllerBase
     }
 
     [HttpPatch("{id:guid}/assign")]
-    [Authorize(Policy = AuthorizationPolicyNames.RequireJobAssign)]
     public async Task<IActionResult> AssignTrustee(Guid id, AssignTrusteeRequest request, CancellationToken cancellationToken)
     {
-        var updated = await jobService.AssignTrusteeAsync(id, request.TrusteeUserId, cancellationToken);
+        var userId = GetCurrentUserId();
+        if (userId is null)
+        {
+            return Unauthorized();
+        }
+
+        var updated = await jobService.AssignTrusteeAsync(id, request.TrusteeUserId, userId.Value, cancellationToken);
         return Ok(updated);
     }
 

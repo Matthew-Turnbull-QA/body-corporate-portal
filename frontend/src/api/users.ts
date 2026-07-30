@@ -1,18 +1,16 @@
-import type { UserDto, UserPermission, UserRole } from "../features/auth/types";
+import type { UserDto } from "../features/auth/types";
 import { apiFetch } from "./client";
 
 export interface CreateUserRequest {
   email: string;
   displayName: string;
-  role: UserRole;
-  permissions: UserPermission[];
+  isPortalAdmin: boolean;
   password?: string | null;
 }
 
 export interface UpdateUserRequest {
   displayName: string;
-  role: UserRole;
-  permissions: UserPermission[];
+  isPortalAdmin: boolean;
   newPassword?: string | null;
 }
 

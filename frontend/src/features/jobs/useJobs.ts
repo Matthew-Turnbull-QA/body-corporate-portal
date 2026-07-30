@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as jobsApi from "../../api/jobs";
-import type { CreateJobRequest, JobStatus } from "../../api/jobs";
+import type { CreateJobRequest, JobStatus, UpdateJobRequest } from "../../api/jobs";
 
 const jobsQueryKey = ["jobs"] as const;
 const jobStatusHistoryQueryKey = (id: string) => ["jobs", id, "status-history"] as const;
@@ -28,6 +28,15 @@ export function useUpdateJobStatus() {
       queryClient.invalidateQueries({ queryKey: jobsQueryKey });
       queryClient.invalidateQueries({ queryKey: jobStatusHistoryQueryKey(variables.id) });
     },
+  });
+}
+
+export function useUpdateJob() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, request }: { id: string; request: UpdateJobRequest }) => jobsApi.updateJob(id, request),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: jobsQueryKey }),
   });
 }
 

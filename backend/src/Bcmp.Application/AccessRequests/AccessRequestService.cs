@@ -59,8 +59,7 @@ public sealed class AccessRequestService(
 
     public async Task<AccessRequestDto> ApproveAsync(
         Guid id,
-        UserRole role,
-        IReadOnlyCollection<UserPermission>? permissions,
+        bool isPortalAdmin,
         string? password,
         Guid reviewedByUserId,
         string? reviewNote,
@@ -79,7 +78,6 @@ public sealed class AccessRequestService(
             ? await userRepository.GetByIdAsync(existingUserId, cancellationToken)
             : await userRepository.GetByEmailAsync(request.Email, cancellationToken);
         var passwordHash = string.IsNullOrWhiteSpace(password) ? null : HashPassword(password);
-        var combinedPermissions = CombinePermissions(permissions, role);
         User approvedUser;
 
         if (existingUser is null)
@@ -88,10 +86,9 @@ public sealed class AccessRequestService(
                 Guid.NewGuid(),
                 request.Email,
                 request.DisplayName,
-                role,
                 now,
+                isPortalAdmin,
                 reviewedByUserId,
-                combinedPermissions,
                 passwordHash);
             await userRepository.AddAsync(approvedUser, cancellationToken);
         }
@@ -100,8 +97,7 @@ public sealed class AccessRequestService(
             approvedUser = existingUser with
             {
                 DisplayName = request.DisplayName,
-                Role = role,
-                Permissions = combinedPermissions,
+                IsPortalAdmin = isPortalAdmin,
                 PasswordHash = passwordHash ?? existingUser.PasswordHash,
                 IsEnabled = true,
             };
@@ -157,13 +153,4 @@ public sealed class AccessRequestService(
         return passwordHasher.HashPassword(password);
     }
 
-    private static UserPermission CombinePermissions(IReadOnlyCollection<UserPermission>? permissions, UserRole role)
-    {
-        if (permissions is null)
-        {
-            return User.DefaultPermissionsFor(role);
-        }
-
-        return permissions.Aggregate(UserPermission.None, (current, permission) => current | permission);
-    }
 }

@@ -40,7 +40,7 @@ export function AppLayout() {
             <NavLink className={({ isActive }) => `app-shell__nav-link ${isActive ? "active" : ""}`} to="/properties">
               Properties
             </NavLink>
-            {user.role === "Administrator" && (
+            {user.isPortalAdmin && (
               <>
                 <NavLink className={({ isActive }) => `app-shell__nav-link ${isActive ? "active" : ""}`} to="/users">
                   Users
@@ -60,7 +60,7 @@ export function AppLayout() {
           <div className="app-shell__avatar">{getInitials(user.displayName)}</div>
           <div className="app-shell__user-details">
             <span className="app-shell__user-name">{user.displayName}</span>
-            <span className="app-shell__user-role">{user.role}</span>
+            <span className="app-shell__user-role">{user.isPortalAdmin ? "Portal admin" : "Trustee"}</span>
           </div>
           <button className="button button--ghost" type="button" onClick={signOut}>
             Sign out

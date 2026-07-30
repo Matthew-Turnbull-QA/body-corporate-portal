@@ -7,7 +7,7 @@ using Microsoft.Extensions.Options;
 namespace Bcmp.Infrastructure.Bootstrap;
 
 /// <summary>
-/// Seeds the very first Administrator so someone can sign in at all, since there is no
+/// Seeds the very first portal admin so someone can sign in at all, since there is no
 /// self-registration. Idempotent: safe to run on every deploy, only acts the first time.
 /// </summary>
 public sealed class DbInitializer(
@@ -30,12 +30,12 @@ public sealed class DbInitializer(
             Guid.NewGuid(),
             adminEmail,
             string.IsNullOrWhiteSpace(options.Value.AdminDisplayName) ? adminEmail : options.Value.AdminDisplayName,
-            UserRole.Administrator,
-            DateTimeOffset.UtcNow);
+            DateTimeOffset.UtcNow,
+            isPortalAdmin: true);
 
         dbContext.Users.Add(admin);
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        logger.LogInformation("Seeded bootstrap Administrator {Email}.", adminEmail);
+        logger.LogInformation("Seeded bootstrap portal admin {Email}.", adminEmail);
     }
 }

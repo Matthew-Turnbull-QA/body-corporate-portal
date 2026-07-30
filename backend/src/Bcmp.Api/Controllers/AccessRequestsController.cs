@@ -2,7 +2,6 @@ using System.IdentityModel.Tokens.Jwt;
 using Bcmp.Api.Authorization;
 using Bcmp.Application.AccessRequests;
 using Bcmp.Domain.AccessRequests;
-using Bcmp.Domain.Users;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -21,8 +20,7 @@ public sealed class AccessRequestsController(IAccessRequestService accessRequest
         string? Message);
 
     public sealed record ApproveAccessRequest(
-        UserRole Role,
-        IReadOnlyList<UserPermission>? Permissions,
+        bool IsPortalAdmin,
         string? Password,
         string? ReviewNote);
 
@@ -45,7 +43,7 @@ public sealed class AccessRequestsController(IAccessRequestService accessRequest
     }
 
     [HttpGet]
-    [Authorize(Policy = AuthorizationPolicyNames.RequireAdministrator)]
+    [Authorize(Policy = AuthorizationPolicyNames.RequirePortalAdmin)]
     public async Task<IActionResult> GetAll(CancellationToken cancellationToken)
     {
         var requests = await accessRequestService.GetAllAsync(cancellationToken);
@@ -53,7 +51,7 @@ public sealed class AccessRequestsController(IAccessRequestService accessRequest
     }
 
     [HttpPatch("{id:guid}/approve")]
-    [Authorize(Policy = AuthorizationPolicyNames.RequireAdministrator)]
+    [Authorize(Policy = AuthorizationPolicyNames.RequirePortalAdmin)]
     public async Task<IActionResult> Approve(Guid id, ApproveAccessRequest request, CancellationToken cancellationToken)
     {
         var userId = GetCurrentUserId();
@@ -64,8 +62,7 @@ public sealed class AccessRequestsController(IAccessRequestService accessRequest
 
         var approved = await accessRequestService.ApproveAsync(
             id,
-            request.Role,
-            request.Permissions,
+            request.IsPortalAdmin,
             request.Password,
             userId.Value,
             request.ReviewNote,
@@ -75,7 +72,7 @@ public sealed class AccessRequestsController(IAccessRequestService accessRequest
     }
 
     [HttpPatch("{id:guid}/reject")]
-    [Authorize(Policy = AuthorizationPolicyNames.RequireAdministrator)]
+    [Authorize(Policy = AuthorizationPolicyNames.RequirePortalAdmin)]
     public async Task<IActionResult> Reject(Guid id, RejectAccessRequest request, CancellationToken cancellationToken)
     {
         var userId = GetCurrentUserId();

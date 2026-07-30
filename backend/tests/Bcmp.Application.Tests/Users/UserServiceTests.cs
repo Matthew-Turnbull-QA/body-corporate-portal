@@ -24,24 +24,37 @@ public class UserServiceTests
         _sut = new UserService(_repository, _passwordHasher, new FixedTimeProvider(Now));
     }
 
-    private static User AnAdmin(bool enabled = true) => User.Create(
-        Guid.NewGuid(), "admin@example.com", "Admin One", UserRole.Administrator, Now) with { IsEnabled = enabled };
+    private static User APortalAdmin(bool enabled = true) =>
+        User.Create(Guid.NewGuid(), "admin@example.com", "Admin One", Now, isPortalAdmin: true) with { IsEnabled = enabled };
 
-    private static User ATrustee(bool enabled = true) => User.Create(
-        Guid.NewGuid(), "trustee@example.com", "Trustee One", UserRole.Trustee, Now) with { IsEnabled = enabled };
+    private static User ATrustee(bool enabled = true) =>
+        User.Create(Guid.NewGuid(), "trustee@example.com", "Trustee One", Now) with { IsEnabled = enabled };
 
     [Test]
-    public async Task AddUserAsync_WithNewEmail_CreatesAndPersistsUser()
+    public async Task AddUserAsync_WithNewEmail_CreatesAndPersistsTrustee()
     {
         _repository.GetByEmailAsync("new@example.com").Returns((User?)null);
 
-        var result = await _sut.AddUserAsync("New@Example.com", "New Person", UserRole.Trustee, permissions: null, password: null, createdByUserId: null);
+        var result = await _sut.AddUserAsync("New@Example.com", "New Person", isPortalAdmin: false, password: null, createdByUserId: null);
 
         result.Email.Should().Be("new@example.com");
         result.DisplayName.Should().Be("New Person");
-        result.Permissions.Should().BeEquivalentTo([UserPermission.LoadJobs, UserPermission.CreateJobs, UserPermission.UpdateJobStatus]);
+        result.IsPortalAdmin.Should().BeFalse();
         result.IsEnabled.Should().BeTrue();
-        await _repository.Received(1).AddAsync(Arg.Is<User>(u => u.Email == "new@example.com"), Arg.Any<CancellationToken>());
+        await _repository.Received(1).AddAsync(
+            Arg.Is<User>(u => u.Email == "new@example.com" && !u.IsPortalAdmin),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task AddUserAsync_WithPortalAdminFlag_PersistsPortalAdmin()
+    {
+        _repository.GetByEmailAsync("new@example.com").Returns((User?)null);
+
+        var result = await _sut.AddUserAsync("new@example.com", "New Admin", isPortalAdmin: true, password: null, createdByUserId: null);
+
+        result.IsPortalAdmin.Should().BeTrue();
+        await _repository.Received(1).AddAsync(Arg.Is<User>(u => u.IsPortalAdmin), Arg.Any<CancellationToken>());
     }
 
     [Test]
@@ -50,7 +63,7 @@ public class UserServiceTests
         var existing = ATrustee();
         _repository.GetByEmailAsync(existing.Email).Returns(existing);
 
-        var act = async () => await _sut.AddUserAsync(existing.Email, "Someone Else", UserRole.Trustee, permissions: null, password: null, createdByUserId: null);
+        var act = async () => await _sut.AddUserAsync(existing.Email, "Someone Else", isPortalAdmin: false, password: null, createdByUserId: null);
 
         await act.Should().ThrowAsync<InvalidOperationException>();
         await _repository.DidNotReceive().AddAsync(Arg.Any<User>(), Arg.Any<CancellationToken>());
@@ -61,44 +74,43 @@ public class UserServiceTests
     {
         _repository.GetByIdAsync(Arg.Any<Guid>()).Returns((User?)null);
 
-        var act = async () => await _sut.UpdateUserAsync(Guid.NewGuid(), "New Name", UserRole.Trustee, permissions: null, newPassword: null);
+        var act = async () => await _sut.UpdateUserAsync(Guid.NewGuid(), "New Name", isPortalAdmin: false, newPassword: null);
 
         await act.Should().ThrowAsync<KeyNotFoundException>();
     }
 
     [Test]
-    public async Task UpdateUserAsync_DemotingTheLastEnabledAdministrator_Throws()
+    public async Task UpdateUserAsync_RemovingAdminFromLastEnabledPortalAdmin_Throws()
     {
-        var admin = AnAdmin();
+        var admin = APortalAdmin();
         _repository.GetByIdAsync(admin.Id).Returns(admin);
-        _repository.CountEnabledAdministratorsAsync().Returns(1);
+        _repository.CountEnabledPortalAdminsAsync().Returns(1);
 
-        var act = async () => await _sut.UpdateUserAsync(admin.Id, admin.DisplayName, UserRole.Trustee, permissions: null, newPassword: null);
+        var act = async () => await _sut.UpdateUserAsync(admin.Id, admin.DisplayName, isPortalAdmin: false, newPassword: null);
 
         await act.Should().ThrowAsync<InvalidOperationException>();
         await _repository.DidNotReceive().UpdateAsync(Arg.Any<User>(), Arg.Any<CancellationToken>());
     }
 
     [Test]
-    public async Task UpdateUserAsync_DemotingOneOfSeveralAdministrators_Succeeds()
+    public async Task UpdateUserAsync_RemovingAdminFromOneOfSeveralPortalAdmins_Succeeds()
     {
-        var admin = AnAdmin();
+        var admin = APortalAdmin();
         _repository.GetByIdAsync(admin.Id).Returns(admin);
-        _repository.CountEnabledAdministratorsAsync().Returns(2);
+        _repository.CountEnabledPortalAdminsAsync().Returns(2);
 
-        var result = await _sut.UpdateUserAsync(admin.Id, admin.DisplayName, UserRole.Trustee, permissions: null, newPassword: null);
+        var result = await _sut.UpdateUserAsync(admin.Id, admin.DisplayName, isPortalAdmin: false, newPassword: null);
 
-        result.Role.Should().Be(UserRole.Trustee);
-        result.Permissions.Should().BeEquivalentTo([UserPermission.LoadJobs, UserPermission.CreateJobs, UserPermission.UpdateJobStatus]);
-        await _repository.Received(1).UpdateAsync(Arg.Is<User>(u => u.Role == UserRole.Trustee), Arg.Any<CancellationToken>());
+        result.IsPortalAdmin.Should().BeFalse();
+        await _repository.Received(1).UpdateAsync(Arg.Is<User>(u => !u.IsPortalAdmin), Arg.Any<CancellationToken>());
     }
 
     [Test]
-    public async Task DisableUserAsync_LastEnabledAdministrator_Throws()
+    public async Task DisableUserAsync_LastEnabledPortalAdmin_Throws()
     {
-        var admin = AnAdmin();
+        var admin = APortalAdmin();
         _repository.GetByIdAsync(admin.Id).Returns(admin);
-        _repository.CountEnabledAdministratorsAsync().Returns(1);
+        _repository.CountEnabledPortalAdminsAsync().Returns(1);
 
         var act = async () => await _sut.DisableUserAsync(admin.Id);
 
@@ -107,11 +119,11 @@ public class UserServiceTests
     }
 
     [Test]
-    public async Task DisableUserAsync_NotTheLastAdministrator_Succeeds()
+    public async Task DisableUserAsync_NotTheLastPortalAdmin_Succeeds()
     {
-        var admin = AnAdmin();
+        var admin = APortalAdmin();
         _repository.GetByIdAsync(admin.Id).Returns(admin);
-        _repository.CountEnabledAdministratorsAsync().Returns(2);
+        _repository.CountEnabledPortalAdminsAsync().Returns(2);
 
         await _sut.DisableUserAsync(admin.Id);
 
@@ -119,25 +131,14 @@ public class UserServiceTests
     }
 
     [Test]
-    public async Task DisableUserAsync_AlreadyDisabled_IsANoOp()
-    {
-        var trustee = ATrustee(enabled: false);
-        _repository.GetByIdAsync(trustee.Id).Returns(trustee);
-
-        await _sut.DisableUserAsync(trustee.Id);
-
-        await _repository.DidNotReceive().UpdateAsync(Arg.Any<User>(), Arg.Any<CancellationToken>());
-    }
-
-    [Test]
-    public async Task DisableUserAsync_DisablingATrustee_NeverChecksAdminCount()
+    public async Task DisableUserAsync_DisablingNormalTrustee_NeverChecksAdminCount()
     {
         var trustee = ATrustee();
         _repository.GetByIdAsync(trustee.Id).Returns(trustee);
 
         await _sut.DisableUserAsync(trustee.Id);
 
-        await _repository.DidNotReceive().CountEnabledAdministratorsAsync(Arg.Any<CancellationToken>());
+        await _repository.DidNotReceive().CountEnabledPortalAdminsAsync(Arg.Any<CancellationToken>());
         await _repository.Received(1).UpdateAsync(Arg.Is<User>(u => !u.IsEnabled), Arg.Any<CancellationToken>());
     }
 
@@ -154,12 +155,25 @@ public class UserServiceTests
     [Test]
     public async Task GetAllAsync_MapsDomainUsersToDtos()
     {
-        var admin = AnAdmin();
+        var admin = APortalAdmin();
         _repository.GetAllAsync().Returns([admin]);
 
         var result = await _sut.GetAllAsync();
 
-        result.Should().ContainSingle(u => u.Id == admin.Id && u.Role == UserRole.Administrator);
+        result.Should().ContainSingle(u => u.Id == admin.Id && u.IsPortalAdmin);
+    }
+
+    [Test]
+    public async Task GetAssignableTrusteesAsync_ReturnsAllEnabledUsers()
+    {
+        var admin = APortalAdmin();
+        var trustee = ATrustee();
+        var disabled = ATrustee(enabled: false) with { Email = "disabled@example.com" };
+        _repository.GetAllAsync().Returns([admin, trustee, disabled]);
+
+        var result = await _sut.GetAssignableTrusteesAsync();
+
+        result.Select(u => u.Id).Should().BeEquivalentTo([admin.Id, trustee.Id]);
     }
 
     [Test]
@@ -168,7 +182,7 @@ public class UserServiceTests
         _repository.GetByEmailAsync("new@example.com").Returns((User?)null);
         _passwordHasher.HashPassword("password123").Returns("hashed-password");
 
-        var result = await _sut.AddUserAsync("new@example.com", "New Person", UserRole.Trustee, permissions: null, password: "password123", createdByUserId: null);
+        var result = await _sut.AddUserAsync("new@example.com", "New Person", isPortalAdmin: false, password: "password123", createdByUserId: null);
 
         result.HasLocalPassword.Should().BeTrue();
         await _repository.Received(1).AddAsync(Arg.Is<User>(u => u.PasswordHash == "hashed-password"), Arg.Any<CancellationToken>());
@@ -179,29 +193,10 @@ public class UserServiceTests
     {
         _repository.GetByEmailAsync("new@example.com").Returns((User?)null);
 
-        var act = async () => await _sut.AddUserAsync("new@example.com", "New Person", UserRole.Trustee, permissions: null, password: "short", createdByUserId: null);
+        var act = async () => await _sut.AddUserAsync("new@example.com", "New Person", isPortalAdmin: false, password: "short", createdByUserId: null);
 
         await act.Should().ThrowAsync<ArgumentException>();
         _passwordHasher.DidNotReceive().HashPassword(Arg.Any<string>());
         await _repository.DidNotReceive().AddAsync(Arg.Any<User>(), Arg.Any<CancellationToken>());
-    }
-
-    [Test]
-    public async Task UpdateUserAsync_WithExplicitPermissions_PersistsPermissions()
-    {
-        var trustee = ATrustee();
-        _repository.GetByIdAsync(trustee.Id).Returns(trustee);
-
-        var result = await _sut.UpdateUserAsync(
-            trustee.Id,
-            trustee.DisplayName,
-            UserRole.Trustee,
-            [UserPermission.LoadJobs, UserPermission.AssignJobs],
-            newPassword: null);
-
-        result.Permissions.Should().BeEquivalentTo([UserPermission.LoadJobs, UserPermission.AssignJobs]);
-        await _repository.Received(1).UpdateAsync(
-            Arg.Is<User>(u => u.Permissions == (UserPermission.LoadJobs | UserPermission.AssignJobs)),
-            Arg.Any<CancellationToken>());
     }
 }

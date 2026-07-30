@@ -20,15 +20,8 @@ public sealed class JwtTokenGenerator(IOptions<JwtOptions> options) : IJwtTokenG
         {
             new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
             new Claim(JwtRegisteredClaimNames.Email, user.Email),
-            // Plain "role" (not ClaimTypes.Role) so it survives JwtSecurityTokenHandler's default outbound
-            // claim-type mapping unchanged and matches Program.cs's RoleClaimType on validation.
-            new Claim("role", user.Role.ToString()),
+            new Claim("portal_admin", user.IsPortalAdmin.ToString().ToLowerInvariant()),
         };
-
-        foreach (var permission in Enum.GetValues<UserPermission>().Where(permission => permission != UserPermission.None && user.HasPermission(permission)))
-        {
-            claims.Add(new Claim("permission", permission.ToString()));
-        }
 
         var token = new JwtSecurityToken(
             issuer: jwtOptions.Issuer,

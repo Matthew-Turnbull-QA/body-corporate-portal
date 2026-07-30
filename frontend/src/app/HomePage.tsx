@@ -9,7 +9,9 @@ export function HomePage() {
     <section className="page-card">
       <div className="page-card__eyebrow">Dashboard</div>
       <h2>Welcome back, {firstName}</h2>
-      <p className="text-muted">Signed in as {user?.email} · {user?.role}</p>
+      <p className="text-muted">
+        Signed in as {user?.email} - {user?.isPortalAdmin ? "Portal admin" : "Trustee"}
+      </p>
       <div className="divider" />
       <div className="empty-state">
         <h3>Job & task management</h3>

@@ -3,7 +3,7 @@ import { LoginPage } from "../features/auth/LoginPage";
 import { RequestAccessPage } from "../features/accessRequests/RequestAccessPage";
 import { AccessRequestsPage } from "../features/accessRequests/AccessRequestsPage";
 import { RequireAuth } from "../features/auth/RequireAuth";
-import { RequireRole } from "../features/auth/RequireRole";
+import { RequirePortalAdmin } from "../features/auth/RequireRole";
 import { UsersListPage } from "../features/users/UsersListPage";
 import { PropertiesListPage } from "../features/properties/PropertiesListPage";
 import { JobsListPage } from "../features/jobs/JobsListPage";
@@ -24,7 +24,7 @@ export const router = createBrowserRouter([
           { path: "properties", element: <PropertiesListPage /> },
           { path: "jobs", element: <JobsListPage /> },
           {
-            element: <RequireRole role="Administrator" />,
+            element: <RequirePortalAdmin />,
             children: [
               { path: "users", element: <UsersListPage /> },
               { path: "access-requests", element: <AccessRequestsPage /> },

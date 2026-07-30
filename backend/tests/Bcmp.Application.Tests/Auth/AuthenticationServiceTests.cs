@@ -56,7 +56,7 @@ public class AuthenticationServiceTests
     [Test]
     public async Task SignInWithGoogleAsync_DisabledUser_ReturnsNull()
     {
-        var disabledUser = User.Create(Guid.NewGuid(), "trustee@example.com", "Trustee One", UserRole.Trustee, Now) with { IsEnabled = false };
+        var disabledUser = User.Create(Guid.NewGuid(), "trustee@example.com", "Trustee One", Now) with { IsEnabled = false };
         _googleTokenValidator.ValidateAsync(GoogleIdToken).Returns(new GoogleIdentity(disabledUser.Email, disabledUser.DisplayName));
         _userRepository.GetByEmailAsync(disabledUser.Email).Returns(disabledUser);
 
@@ -70,7 +70,7 @@ public class AuthenticationServiceTests
     [Test]
     public async Task SignInWithGoogleAsync_EnabledUser_IssuesTokenAndRecordsLastLogin()
     {
-        var user = User.Create(Guid.NewGuid(), "trustee@example.com", "Trustee One", UserRole.Trustee, Now);
+        var user = User.Create(Guid.NewGuid(), "trustee@example.com", "Trustee One", Now);
         _googleTokenValidator.ValidateAsync(GoogleIdToken).Returns(new GoogleIdentity(user.Email, user.DisplayName));
         _userRepository.GetByEmailAsync(user.Email).Returns(user);
         _jwtTokenGenerator.GenerateToken(Arg.Any<User>()).Returns("signed-jwt");
@@ -87,7 +87,7 @@ public class AuthenticationServiceTests
     [Test]
     public async Task SignInWithPasswordAsync_ValidCredentials_IssuesTokenAndRecordsLastLogin()
     {
-        var user = User.Create(Guid.NewGuid(), "trustee@example.com", "Trustee One", UserRole.Trustee, Now) with { PasswordHash = "hashed-password" };
+        var user = User.Create(Guid.NewGuid(), "trustee@example.com", "Trustee One", Now) with { PasswordHash = "hashed-password" };
         _userRepository.GetByEmailAsync(user.Email).Returns(user);
         _passwordHasher.VerifyPassword("hashed-password", "correct-password").Returns(true);
         _jwtTokenGenerator.GenerateToken(Arg.Any<User>()).Returns("signed-jwt");
@@ -103,7 +103,7 @@ public class AuthenticationServiceTests
     [Test]
     public async Task SignInWithPasswordAsync_InvalidPassword_ReturnsNull()
     {
-        var user = User.Create(Guid.NewGuid(), "trustee@example.com", "Trustee One", UserRole.Trustee, Now) with { PasswordHash = "hashed-password" };
+        var user = User.Create(Guid.NewGuid(), "trustee@example.com", "Trustee One", Now) with { PasswordHash = "hashed-password" };
         _userRepository.GetByEmailAsync(user.Email).Returns(user);
         _passwordHasher.VerifyPassword("hashed-password", "wrong-password").Returns(false);
 
@@ -117,7 +117,7 @@ public class AuthenticationServiceTests
     [Test]
     public async Task SignInWithPasswordAsync_UserWithoutLocalPassword_ReturnsNull()
     {
-        var user = User.Create(Guid.NewGuid(), "trustee@example.com", "Trustee One", UserRole.Trustee, Now);
+        var user = User.Create(Guid.NewGuid(), "trustee@example.com", "Trustee One", Now);
         _userRepository.GetByEmailAsync(user.Email).Returns(user);
 
         var result = await _sut.SignInWithPasswordAsync(user.Email, "any-password");

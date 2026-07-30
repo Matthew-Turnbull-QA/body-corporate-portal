@@ -1,7 +1,6 @@
 using System.IdentityModel.Tokens.Jwt;
 using Bcmp.Api.Authorization;
 using Bcmp.Application.Users;
-using Bcmp.Domain.Users;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -15,14 +14,12 @@ public sealed class UsersController(IUserService userService) : ControllerBase
     public sealed record CreateUserRequest(
         string Email,
         string DisplayName,
-        UserRole Role,
-        IReadOnlyList<UserPermission>? Permissions,
+        bool IsPortalAdmin,
         string? Password);
 
     public sealed record UpdateUserRequest(
         string DisplayName,
-        UserRole Role,
-        IReadOnlyList<UserPermission>? Permissions,
+        bool IsPortalAdmin,
         string? NewPassword);
 
     [HttpGet("me")]
@@ -39,7 +36,7 @@ public sealed class UsersController(IUserService userService) : ControllerBase
     }
 
     [HttpGet]
-    [Authorize(Policy = AuthorizationPolicyNames.RequireAdministrator)]
+    [Authorize(Policy = AuthorizationPolicyNames.RequirePortalAdmin)]
     public async Task<IActionResult> GetAll(CancellationToken cancellationToken)
     {
         var users = await userService.GetAllAsync(cancellationToken);
@@ -47,7 +44,7 @@ public sealed class UsersController(IUserService userService) : ControllerBase
     }
 
     [HttpGet("assignable-trustees")]
-    [Authorize(Policy = AuthorizationPolicyNames.RequireJobAssign)]
+    [Authorize(Policy = AuthorizationPolicyNames.RequirePortalAdmin)]
     public async Task<IActionResult> GetAssignableTrustees(CancellationToken cancellationToken)
     {
         var users = await userService.GetAssignableTrusteesAsync(cancellationToken);
@@ -55,7 +52,7 @@ public sealed class UsersController(IUserService userService) : ControllerBase
     }
 
     [HttpGet("{id:guid}")]
-    [Authorize(Policy = AuthorizationPolicyNames.RequireAdministrator)]
+    [Authorize(Policy = AuthorizationPolicyNames.RequirePortalAdmin)]
     public async Task<IActionResult> GetById(Guid id, CancellationToken cancellationToken)
     {
         var user = await userService.GetByIdAsync(id, cancellationToken);
@@ -63,14 +60,13 @@ public sealed class UsersController(IUserService userService) : ControllerBase
     }
 
     [HttpPost]
-    [Authorize(Policy = AuthorizationPolicyNames.RequireAdministrator)]
+    [Authorize(Policy = AuthorizationPolicyNames.RequirePortalAdmin)]
     public async Task<IActionResult> Create(CreateUserRequest request, CancellationToken cancellationToken)
     {
         var createdUser = await userService.AddUserAsync(
             request.Email,
             request.DisplayName,
-            request.Role,
-            request.Permissions,
+            request.IsPortalAdmin,
             request.Password,
             GetCurrentUserId(),
             cancellationToken);
@@ -79,21 +75,20 @@ public sealed class UsersController(IUserService userService) : ControllerBase
     }
 
     [HttpPut("{id:guid}")]
-    [Authorize(Policy = AuthorizationPolicyNames.RequireAdministrator)]
+    [Authorize(Policy = AuthorizationPolicyNames.RequirePortalAdmin)]
     public async Task<IActionResult> Update(Guid id, UpdateUserRequest request, CancellationToken cancellationToken)
     {
         var updatedUser = await userService.UpdateUserAsync(
             id,
             request.DisplayName,
-            request.Role,
-            request.Permissions,
+            request.IsPortalAdmin,
             request.NewPassword,
             cancellationToken);
         return Ok(updatedUser);
     }
 
     [HttpPatch("{id:guid}/enable")]
-    [Authorize(Policy = AuthorizationPolicyNames.RequireAdministrator)]
+    [Authorize(Policy = AuthorizationPolicyNames.RequirePortalAdmin)]
     public async Task<IActionResult> Enable(Guid id, CancellationToken cancellationToken)
     {
         await userService.EnableUserAsync(id, cancellationToken);
@@ -101,7 +96,7 @@ public sealed class UsersController(IUserService userService) : ControllerBase
     }
 
     [HttpPatch("{id:guid}/disable")]
-    [Authorize(Policy = AuthorizationPolicyNames.RequireAdministrator)]
+    [Authorize(Policy = AuthorizationPolicyNames.RequirePortalAdmin)]
     public async Task<IActionResult> Disable(Guid id, CancellationToken cancellationToken)
     {
         await userService.DisableUserAsync(id, cancellationToken);

@@ -2,7 +2,6 @@ using System.Text;
 using Bcmp.Api.Authorization;
 using Bcmp.Api.ErrorHandling;
 using Bcmp.Application;
-using Bcmp.Domain.Users;
 using Bcmp.Infrastructure;
 using Bcmp.Infrastructure.Bootstrap;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -59,24 +58,13 @@ try
                 ValidateLifetime = true,
                 ValidateIssuerSigningKey = true,
                 IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSigningKey)),
-                RoleClaimType = "role",
             };
         });
 
     builder.Services.AddAuthorization(options =>
     {
-        options.AddPolicy(AuthorizationPolicyNames.RequireAdministrator, policy =>
-            policy.RequireRole(nameof(UserRole.Administrator)));
-        options.AddPolicy(AuthorizationPolicyNames.RequireTrustee, policy =>
-            policy.RequireRole(nameof(UserRole.Administrator), nameof(UserRole.Trustee)));
-        options.AddPolicy(AuthorizationPolicyNames.RequireJobLoad, policy =>
-            policy.RequireClaim("permission", nameof(UserPermission.LoadJobs)));
-        options.AddPolicy(AuthorizationPolicyNames.RequireJobCreate, policy =>
-            policy.RequireClaim("permission", nameof(UserPermission.CreateJobs)));
-        options.AddPolicy(AuthorizationPolicyNames.RequireJobStatusUpdate, policy =>
-            policy.RequireClaim("permission", nameof(UserPermission.UpdateJobStatus)));
-        options.AddPolicy(AuthorizationPolicyNames.RequireJobAssign, policy =>
-            policy.RequireClaim("permission", nameof(UserPermission.AssignJobs)));
+        options.AddPolicy(AuthorizationPolicyNames.RequirePortalAdmin, policy =>
+            policy.RequireClaim("portal_admin", "true"));
     });
 
     const string frontendCorsPolicy = "Frontend";

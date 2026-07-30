@@ -1,4 +1,3 @@
-import type { UserPermission, UserRole } from "../features/auth/types";
 import { apiFetch } from "./client";
 
 export type AccessRequestRelationship = "Trustee" | "Owner" | "Resident" | "ManagingAgent" | "Contractor" | "Other";
@@ -32,8 +31,7 @@ export interface SubmitAccessRequest {
 }
 
 export interface ApproveAccessRequest {
-  role: UserRole;
-  permissions: UserPermission[];
+  isPortalAdmin: boolean;
   password?: string | null;
   reviewNote?: string | null;
 }

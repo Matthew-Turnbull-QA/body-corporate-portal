@@ -20,8 +20,7 @@ public sealed class UserService(IUserRepository userRepository, IPasswordHasher 
     public async Task<UserDto> AddUserAsync(
         string email,
         string displayName,
-        UserRole role,
-        IReadOnlyCollection<UserPermission>? permissions,
+        bool isPortalAdmin,
         string? password,
         Guid? createdByUserId,
         CancellationToken cancellationToken = default)
@@ -38,10 +37,9 @@ public sealed class UserService(IUserRepository userRepository, IPasswordHasher 
             Guid.NewGuid(),
             email,
             displayName,
-            role,
             timeProvider.GetUtcNow(),
+            isPortalAdmin,
             createdByUserId,
-            CombinePermissions(permissions, role),
             passwordHash);
         await userRepository.AddAsync(user, cancellationToken);
         return UserDto.FromDomain(user);
@@ -50,8 +48,7 @@ public sealed class UserService(IUserRepository userRepository, IPasswordHasher 
     public async Task<UserDto> UpdateUserAsync(
         Guid id,
         string displayName,
-        UserRole role,
-        IReadOnlyCollection<UserPermission>? permissions,
+        bool isPortalAdmin,
         string? newPassword,
         CancellationToken cancellationToken = default)
     {
@@ -63,16 +60,15 @@ public sealed class UserService(IUserRepository userRepository, IPasswordHasher 
             throw new ArgumentException("Display name cannot be empty.", nameof(displayName));
         }
 
-        if (user.Role == UserRole.Administrator && user.IsEnabled && role != UserRole.Administrator)
+        if (user.IsPortalAdmin && user.IsEnabled && !isPortalAdmin)
         {
-            await EnsureNotLastEnabledAdministratorAsync(cancellationToken);
+            await EnsureNotLastEnabledPortalAdminAsync(cancellationToken);
         }
 
         var updated = user with
         {
             DisplayName = displayName.Trim(),
-            Role = role,
-            Permissions = CombinePermissions(permissions, role),
+            IsPortalAdmin = isPortalAdmin,
             PasswordHash = string.IsNullOrWhiteSpace(newPassword) ? user.PasswordHash : HashPassword(newPassword),
         };
         await userRepository.UpdateAsync(updated, cancellationToken);
@@ -83,7 +79,7 @@ public sealed class UserService(IUserRepository userRepository, IPasswordHasher 
     {
         var users = await userRepository.GetAllAsync(cancellationToken);
         return users
-            .Where(user => user.IsEnabled && user.Role == UserRole.Trustee)
+            .Where(user => user.IsEnabled)
             .Select(UserDto.FromDomain)
             .ToList();
     }
@@ -111,20 +107,20 @@ public sealed class UserService(IUserRepository userRepository, IPasswordHasher 
             return;
         }
 
-        if (user.Role == UserRole.Administrator)
+        if (user.IsPortalAdmin)
         {
-            await EnsureNotLastEnabledAdministratorAsync(cancellationToken);
+            await EnsureNotLastEnabledPortalAdminAsync(cancellationToken);
         }
 
         await userRepository.UpdateAsync(user with { IsEnabled = false }, cancellationToken);
     }
 
-    private async Task EnsureNotLastEnabledAdministratorAsync(CancellationToken cancellationToken)
+    private async Task EnsureNotLastEnabledPortalAdminAsync(CancellationToken cancellationToken)
     {
-        var enabledAdminCount = await userRepository.CountEnabledAdministratorsAsync(cancellationToken);
+        var enabledAdminCount = await userRepository.CountEnabledPortalAdminsAsync(cancellationToken);
         if (enabledAdminCount <= 1)
         {
-            throw new InvalidOperationException("Cannot disable or demote the last enabled Administrator.");
+            throw new InvalidOperationException("Cannot disable or remove admin access from the last enabled portal admin.");
         }
     }
 
@@ -142,13 +138,4 @@ public sealed class UserService(IUserRepository userRepository, IPasswordHasher 
         }
     }
 
-    private static UserPermission CombinePermissions(IReadOnlyCollection<UserPermission>? permissions, UserRole role)
-    {
-        if (permissions is null)
-        {
-            return User.DefaultPermissionsFor(role);
-        }
-
-        return permissions.Aggregate(UserPermission.None, (current, permission) => current | permission);
-    }
 }

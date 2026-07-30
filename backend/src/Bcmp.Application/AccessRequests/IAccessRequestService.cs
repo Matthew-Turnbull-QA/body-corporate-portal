@@ -1,5 +1,4 @@
 using Bcmp.Domain.AccessRequests;
-using Bcmp.Domain.Users;
 
 namespace Bcmp.Application.AccessRequests;
 
@@ -18,8 +17,7 @@ public interface IAccessRequestService
 
     Task<AccessRequestDto> ApproveAsync(
         Guid id,
-        UserRole role,
-        IReadOnlyCollection<UserPermission>? permissions,
+        bool isPortalAdmin,
         string? password,
         Guid reviewedByUserId,
         string? reviewNote,

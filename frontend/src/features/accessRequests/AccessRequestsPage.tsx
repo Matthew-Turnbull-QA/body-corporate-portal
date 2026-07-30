@@ -1,12 +1,5 @@
 import { useState } from "react";
 import type { AccessRequestDto, AccessRequestRelationship } from "../../api/accessRequests";
-import {
-  allJobPermissions,
-  defaultPermissionsForRole,
-  jobPermissionLabels,
-  type UserPermission,
-  type UserRole,
-} from "../auth/types";
 import { useAccessRequests, useApproveAccessRequest, useRejectAccessRequest } from "./useAccessRequests";
 
 const relationshipLabels: Record<AccessRequestRelationship, string> = {
@@ -27,8 +20,7 @@ const statusChipClass = {
 function AccessRequestRow({ request }: { request: AccessRequestDto }) {
   const approveAccessRequest = useApproveAccessRequest();
   const rejectAccessRequest = useRejectAccessRequest();
-  const [role, setRole] = useState<UserRole>("Trustee");
-  const [permissions, setPermissions] = useState<UserPermission[]>(defaultPermissionsForRole("Trustee"));
+  const [isPortalAdmin, setIsPortalAdmin] = useState(false);
   const [password, setPassword] = useState("");
   const [reviewNote, setReviewNote] = useState("");
 
@@ -39,23 +31,11 @@ function AccessRequestRow({ request }: { request: AccessRequestDto }) {
       : "Reactivation request"
     : "New account request";
 
-  function handleRoleChange(nextRole: UserRole) {
-    setRole(nextRole);
-    setPermissions(defaultPermissionsForRole(nextRole));
-  }
-
-  function togglePermission(permission: UserPermission) {
-    setPermissions((current) =>
-      current.includes(permission) ? current.filter((item) => item !== permission) : [...current, permission],
-    );
-  }
-
   async function handleApprove() {
     await approveAccessRequest.mutateAsync({
       id: request.id,
       request: {
-        role,
-        permissions,
+        isPortalAdmin,
         password: password.trim() || null,
         reviewNote: reviewNote.trim() || null,
       },
@@ -90,22 +70,14 @@ function AccessRequestRow({ request }: { request: AccessRequestDto }) {
       <td>
         {isPending ? (
           <div className="review-controls">
-            <select value={role} onChange={(event) => handleRoleChange(event.target.value as UserRole)}>
-              <option value="Trustee">Trustee</option>
-              <option value="Administrator">Administrator</option>
-            </select>
-            <div className="checkbox-grid checkbox-grid--compact">
-              {allJobPermissions.map((permission) => (
-                <label key={permission} className="checkbox-option">
-                  <input
-                    type="checkbox"
-                    checked={permissions.includes(permission)}
-                    onChange={() => togglePermission(permission)}
-                  />
-                  {jobPermissionLabels[permission]}
-                </label>
-              ))}
-            </div>
+            <label className="checkbox-option">
+              <input
+                type="checkbox"
+                checked={isPortalAdmin}
+                onChange={(event) => setIsPortalAdmin(event.target.checked)}
+              />
+              Portal admin
+            </label>
             <input
               type="password"
               minLength={8}
