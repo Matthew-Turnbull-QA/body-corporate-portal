@@ -7,6 +7,21 @@ after Phase 2 is well underway), feel free to delete this file; it's a handoff
 aid, not a permanent project doc. `docs/ARCHITECTURE.md` and
 `docs/MANUAL_TEST_PLAN.md` are the permanent ones.
 
+## Current update (as of 2026-08-01)
+
+Phase 1, Properties, Jobs, and the email-intake POC are implemented. The
+dedicated Rietvlei Gmail intake flow has been configured and manually tested
+by the user, including real intake, acknowledgement email, trustee BCC,
+duplicate handling, and the unit-required status lock.
+
+The Assignment engine MVP rules are now defined in `docs/ARCHITECTURE.md`:
+ordered portal-admin rules, property/source/keyword matching, round-robin
+fallback, manual assignment override, assignment provenance tracking, and
+assignment-focused notifications. The next backlog item is backend
+model/service implementation for those rules. Dashboards and AI enrichment
+come after that. `docs/PROJECT_STATE.md` is the source of truth for the
+current roadmap.
+
 ## Where things stand (as of 2026-07-20)
 
 **Phase 1 (Authentication + Users) and the first two Phase 2 features
@@ -71,13 +86,12 @@ instance while giving feedback, so the core flows are very likely fine.
 Worth an explicit pass through `/jobs` (add, sort, complete, assign) before
 treating it as done.
 
-**Phase 2 status**: Properties and Jobs are done (see above). Email
-integration, the full Assignment engine (routing/notifications — today
-there's only a manual per-job assign-to-trustee dropdown), and
-Dashboards/AI enrichment have not been started. See `docs/PROJECT_STATE.md`
-§"Suggested Phase 2 sequence" for the intended shape of each — that's the
-file that actually carries this roadmap (not `ARCHITECTURE.md`, despite an
-earlier version of this note pointing there).
+**Phase 2 status**: Properties, Jobs, and the email-intake POC are done.
+The full Assignment engine is next: routing/notifications on top of today's
+round-robin/manual-assignment foundation. Dashboards/AI enrichment has not
+been started. See `docs/PROJECT_STATE.md` section "Suggested Phase 2
+sequence" for the intended shape of each - that is the file that actually
+carries this roadmap.
 
 ## Getting it running locally
 

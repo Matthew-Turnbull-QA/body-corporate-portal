@@ -48,6 +48,38 @@ The Jobs UI groups `Open` and `InProgress` under Active, and `Completed` and `Ca
 
 Every job has a generated human-readable `JobNumber` such as `BCMP-000123`, backed by a PostgreSQL sequence. `PropertyId` is nullable so email-created jobs can enter the system before a trustee/admin selects the correct unit. Manual job creation still requires a property, and `JobService.UpdateStatusAsync` blocks any move away from `Open` until a property/unit has been selected.
 
+## Assignment engine MVP
+
+The first Assignment engine release replaces create-time round robin with a small ordered rules engine, while keeping round robin as the fallback. Portal admins own the rules. Normal trustees can see the resulting assignment on jobs, but cannot change routing rules.
+
+Each rule has a name, enabled flag, priority order, target trustee, and optional match criteria. The MVP match criteria are:
+
+- `PropertyId`: match jobs for a selected property/unit.
+- `JobSource`: match `Manual` or `Email` jobs.
+- Keywords: case-insensitive terms matched against job title and description.
+
+All criteria configured on a rule must match. Rules with no criteria are not allowed in the MVP because fallback round robin already covers the catch-all case. If multiple rules match, the enabled rule with the highest priority wins. If the target trustee is disabled or a system user, the rule is skipped and the next matching enabled rule is considered.
+
+Routing runs in two places:
+
+- On job creation for both manual jobs and email-created jobs.
+- Once when an email-created job moves from no property to a selected property, provided it has not been manually reassigned.
+
+Manual portal-admin assignment is an override. Once a portal admin manually assigns a job, automated routing must not reassign that job unless a portal admin explicitly clears the override or manually chooses a different trustee. This means the implementation needs to track assignment provenance, for example `Rule`, `RoundRobinFallback`, or `ManualOverride`, rather than only storing `AssignedTrusteeUserId`.
+
+When no enabled rule matches, the existing deterministic round robin remains the fallback across enabled non-system trustees ordered by `CreatedAtUtc`, then `Id`. Portal admins remain part of that rotation because they are also trustees. If no enabled non-system trustee exists, job creation should fail as it does today.
+
+The MVP notification scope is assignment-focused:
+
+- Notify the assigned trustee when a new job is assigned to them by a rule or by round robin.
+- Notify the newly assigned trustee when a job is manually reassigned to them.
+- Notify the previous trustee when a job is reassigned away from them.
+- Notify portal admins only when routing cannot complete because all otherwise matching rule targets are unavailable.
+
+The resident-facing email acknowledgement remains separate from assignment notifications. Email-intake acknowledgements continue to go to the sender; any BCC behavior can be narrowed after internal assignment notifications are in place and verified.
+
+Not in the MVP: true unit ownership, trustee availability/leave calendars, workload balancing by open-job count, SLA escalation, multi-trustee assignment, status-change notifications, and AI-based classification. Those should be added only after the ordered rules path is stable.
+
 ## Email intake
 
 Gmail intake is implemented as application-side polling through MailKit. IMAP and SMTP authenticate with OAuth2/XOAUTH2 using a stored refresh token, not a Gmail app password. The hosted service is disabled unless `EmailIntake:Enabled=true`; portal admins can also trigger a poll through `POST /api/email-intake/poll-now` and inspect recent processing records through `GET /api/email-intake/messages`.

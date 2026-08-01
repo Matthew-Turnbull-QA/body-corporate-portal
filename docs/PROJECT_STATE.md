@@ -1,10 +1,10 @@
 # Project State and Handoff
 
-Last updated: 2026-07-31
+Last updated: 2026-08-01
 
 ## Current milestone
 
-Phase 1 authentication and user-management work is complete and verified locally. The local OAuth sign-in flow is working end to end in a real browser. Phase 2's Properties and Jobs domains are implemented. Jobs now include sortable columns, last-updated tracking, Active/Closed grouping, round-robin trustee assignment, job editing, manual portal-admin reassignment, status-change notes, status audit history, job numbers, and Gmail email intake.
+Phase 1 authentication and user-management work is complete and verified locally. The local OAuth sign-in flow is working end to end in a real browser. Phase 2's Properties and Jobs domains are implemented. Jobs now include sortable columns, last-updated tracking, Active/Closed grouping, round-robin trustee assignment, job editing, manual portal-admin reassignment, status-change notes, status audit history, job numbers, and Gmail email intake. The dedicated Rietvlei Gmail intake flow has been configured and manually tested end to end.
 
 ## Completed work
 
@@ -17,16 +17,18 @@ Phase 1 authentication and user-management work is complete and verified locally
 - [x] Local email/password sign-in edge cases verified manually
 - [x] Trustee-only job access and round-robin assignment implemented
 - [x] Gmail email-intake POC implemented
+- [x] Dedicated Rietvlei Gmail email-intake flow manually verified
+- [x] Assignment engine MVP rules defined
 
 ## Current status summary
 
 The 2026-07-30 trustee-only pivot replaced `Administrator`/`Trustee` roles and granular job permissions with a single trustee user model plus an `IsPortalAdmin` flag. Every enabled user is a trustee. Portal admins manage users, access requests, and manual job reassignment. All enabled trustees can view and create jobs. New jobs auto-assign by deterministic round robin across enabled trustees, including portal admins. Only portal admins or the assigned trustee can edit job details, change status, or edit status-history notes.
 
-The foundation remains stable: auth, user management, database access, local password login, access requests, and local dev flow all still work. Email-created jobs start as `Open` with no unit/property selected; status changes are blocked until a trustee/admin selects the correct unit.
+The foundation remains stable: auth, user management, database access, local password login, access requests, and local dev flow all still work. Email-created jobs start as `Open` with no unit/property selected; status changes are blocked until a trustee/admin selects the correct unit. The dedicated Rietvlei Gmail mailbox has been tested with real intake, acknowledgement, trustee BCC, duplicate handling, and the unit-required status lock.
 
 ## Recommended next priority
 
-Run the email-intake manual test with the dedicated Rietvlei Gmail account, then decide whether to harden intake filtering or continue to the Assignment engine routing/notifications track.
+Implement the Assignment engine backend model/service changes from the MVP rules in `docs/ARCHITECTURE.md`.
 
 ### Suggested Phase 2 sequence
 
@@ -42,12 +44,12 @@ Run the email-intake manual test with the dedicated Rietvlei Gmail account, then
 
    New jobs auto-assign to enabled trustees using deterministic round robin ordered by `CreatedAtUtc` then `Id`. Portal admins are included in the rotation. Portal admins alone can manually reassign jobs. Portal admins and assigned trustees can edit job details, change status, and edit status-history notes; other trustees can view jobs/history only.
 
-3. Email integration - implemented as a POC.
+3. Email integration - implemented as a POC and manually verified.
 
-   Gmail polling uses MailKit against the configured mailbox/folder. New messages create `JobSource.Email` jobs with generated job numbers, no initial unit/property, and existing round-robin assignment. The app sends an acknowledgement to the sender with the job number, assigned trustee wording, and 24-hour response aim, BCCing enabled trustees. Duplicate tracking and failure diagnostics are stored in `EmailIntakeMessages`.
+   Gmail polling uses MailKit against the configured mailbox/folder. New messages create `JobSource.Email` jobs with generated job numbers, no initial unit/property, and existing round-robin assignment. The app sends an acknowledgement to the sender with the job number, assigned trustee wording, and 24-hour response aim, BCCing enabled trustees. Duplicate tracking and failure diagnostics are stored in `EmailIntakeMessages`. The dedicated Rietvlei mailbox has been configured and tested with a real email intake run.
 
 4. Assignment engine
-   - Build routing/notification rules on top of the current round-robin/manual-assignment foundation.
+   - MVP rules are defined in `docs/ARCHITECTURE.md`: ordered portal-admin rules, property/source/keyword matching, round-robin fallback, manual assignment override, assignment provenance tracking, and assignment-focused notifications.
 
 5. Dashboards and AI enrichment
    - Add reporting views and lightweight automation.
@@ -64,9 +66,11 @@ Run the email-intake manual test with the dedicated Rietvlei Gmail account, then
 
 ## Immediate next action
 
-1. Apply the latest migration and seed the email-intake system user.
-2. Configure Gmail intake secrets for the dedicated Rietvlei mailbox.
-3. Send a real test email, trigger `Email Intake -> Check now`, and verify the created job, acknowledgement email, trustee BCC, duplicate skip, and unit-required status lock.
+1. Add the backend model/service changes for assignment rules, assignment provenance, rule evaluation, and assignment notification events.
+2. Add EF Core persistence and a migration for assignment rules/provenance.
+3. Cover routing precedence, disabled trustee skips, manual override, email-property re-evaluation, and round-robin fallback in application tests.
+4. Expose portal-admin UI controls for managing routing rules.
+5. Verify assignment behavior with real job creation from both manual entry and email intake.
 
 ## Update log
 
@@ -83,3 +87,5 @@ Run the email-intake manual test with the dedicated Rietvlei Gmail account, then
 - 2026-07-30: Trustee-only job access and assignment implemented: removed roles and granular job permissions, added `IsPortalAdmin`, backfilled existing admins via `TrusteeOnlyPortalAdmins`, added round-robin job assignment, added job editing, enforced portal-admin-or-assigned-trustee mutation rules, and simplified user/access UIs. Verified with local migration, backend build, 22/22 domain tests, 47/47 application tests, frontend build, and frontend lint. Existing frontend Fast Refresh warning in `AuthContext.tsx` remains.
 - 2026-07-30: Jobs row UX refined: inline history/edit actions were moved into a larger job detail modal opened from the job title. The table keeps only quick status changes for authorized users and portal-admin assignment in the assigned-to column; the modal contains read-only job details, edit mode for authorized users, and a scrollable notes/history section. Verified with frontend build and lint.
 - 2026-07-31: Email-intake POC implemented: job numbers, nullable job property for email-created work, status lock until unit selection, Gmail IMAP polling, duplicate/failure tracking, email acknowledgements with trustee BCC, email-intake system user, portal-admin Email Intake screen, and setup docs. Verified with backend test/build and frontend build/lint.
+- 2026-08-01: Dedicated Rietvlei Gmail email-intake flow manually tested by the user and accepted. Next roadmap priority moved to Assignment engine routing/notifications.
+- 2026-08-01: Assignment engine MVP rules defined in `docs/ARCHITECTURE.md`. Next implementation step is backend model/service changes for routing rules, assignment provenance, and assignment notification events.
