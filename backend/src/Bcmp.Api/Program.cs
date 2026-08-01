@@ -4,6 +4,7 @@ using Bcmp.Api.ErrorHandling;
 using Bcmp.Application;
 using Bcmp.Infrastructure;
 using Bcmp.Infrastructure.Bootstrap;
+using Bcmp.Infrastructure.EmailIntake;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Serilog;
@@ -89,6 +90,30 @@ try
         using var seedScope = app.Services.CreateScope();
         var dbInitializer = seedScope.ServiceProvider.GetRequiredService<DbInitializer>();
         await dbInitializer.SeedAsync();
+        return;
+    }
+
+    if (args.Contains("--seed-email-intake"))
+    {
+        using var seedScope = app.Services.CreateScope();
+        var dbInitializer = seedScope.ServiceProvider.GetRequiredService<DbInitializer>();
+        await dbInitializer.SeedEmailIntakeUserAsync();
+        return;
+    }
+
+    if (args.Contains("--gmail-oauth"))
+    {
+        var gmailOAuthTokenService = app.Services.GetRequiredService<GmailOAuthTokenService>();
+        var refreshToken = await gmailOAuthTokenService.GenerateRefreshTokenAsync();
+
+        Console.WriteLine();
+        Console.WriteLine("Gmail OAuth refresh token generated.");
+        Console.WriteLine("This value is sensitive. Store it in user-secrets, then restart the API.");
+        Console.WriteLine();
+        Console.WriteLine("From the backend folder, run:");
+        Console.WriteLine();
+        Console.WriteLine($"""dotnet user-secrets set "EmailIntake:Gmail:RefreshToken" "{refreshToken}" --project src/Bcmp.Api""");
+        Console.WriteLine();
         return;
     }
 

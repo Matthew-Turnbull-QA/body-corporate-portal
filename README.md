@@ -12,6 +12,25 @@ See `docs/ARCHITECTURE.md` for key design decisions and their trade-offs.
 
 ## Local development
 
+### Start the app
+
+On Windows, after local secrets and `frontend/.env` are configured:
+
+```powershell
+npm run dev:all
+```
+
+This opens separate PowerShell windows for:
+
+- Backend API: `http://localhost:5151`
+- Frontend app: `http://localhost:5173`
+
+Optional first-run switches:
+
+```powershell
+.\scripts\start-dev.ps1 -Install -Migrate -Seed -OpenBrowser
+```
+
 ### Backend
 
 ```bash
@@ -24,6 +43,34 @@ dotnet ef database update --project src/Bcmp.Infrastructure --startup-project sr
 dotnet run --project src/Bcmp.Api -- --seed   # one-time: creates the first Administrator, safe to re-run
 dotnet run --project src/Bcmp.Api
 ```
+
+Optional Gmail email intake for local POC:
+
+```bash
+cd backend
+dotnet user-secrets set "EmailIntake:Enabled" "true" --project src/Bcmp.Api
+dotnet user-secrets set "EmailIntake:SystemUserEmail" "email-intake@system.local" --project src/Bcmp.Api
+dotnet user-secrets set "EmailIntake:FolderName" "INBOX" --project src/Bcmp.Api
+dotnet user-secrets set "EmailIntake:PollIntervalSeconds" "300" --project src/Bcmp.Api
+dotnet user-secrets set "EmailIntake:MaxMessagesPerPoll" "10" --project src/Bcmp.Api
+dotnet user-secrets set "EmailIntake:Gmail:Address" "<rietvlei-gmail-address>" --project src/Bcmp.Api
+dotnet user-secrets set "EmailIntake:Gmail:ClientId" "<google-oauth-client-id>" --project src/Bcmp.Api
+dotnet user-secrets set "EmailIntake:Gmail:ClientSecret" "<google-oauth-client-secret>" --project src/Bcmp.Api
+dotnet run --project src/Bcmp.Api -- --seed-email-intake
+dotnet run --project src/Bcmp.Api -- --gmail-oauth
+```
+
+The `--gmail-oauth` command opens Google consent for the configured Gmail account and prints a `dotnet user-secrets set "EmailIntake:Gmail:RefreshToken" ...` command. Run the printed command, then restart the API.
+
+If local antivirus/VPN/proxy TLS inspection causes Gmail certificate validation to fail during local POC testing, this can temporarily unblock development:
+
+```bash
+dotnet user-secrets set "EmailIntake:Gmail:AllowInvalidServerCertificate" "true" --project src/Bcmp.Api
+```
+
+Do not use that setting in production; fix the machine/root-certificate/network issue instead.
+
+Email-created jobs start as `Open` with no unit selected. A trustee/admin must select a unit before the status can change. The app replies to the sender with the job number and BCCs enabled trustees.
 
 ### Frontend
 

@@ -1,10 +1,10 @@
 # Project State and Handoff
 
-Last updated: 2026-07-30
+Last updated: 2026-07-31
 
 ## Current milestone
 
-Phase 1 authentication and user-management work is complete and verified locally. The local OAuth sign-in flow is working end to end in a real browser. Phase 2's Properties and Jobs domains are implemented. Jobs now include sortable columns, last-updated tracking, Active/Closed grouping, round-robin trustee assignment, job editing, manual portal-admin reassignment, status-change notes, and status audit history.
+Phase 1 authentication and user-management work is complete and verified locally. The local OAuth sign-in flow is working end to end in a real browser. Phase 2's Properties and Jobs domains are implemented. Jobs now include sortable columns, last-updated tracking, Active/Closed grouping, round-robin trustee assignment, job editing, manual portal-admin reassignment, status-change notes, status audit history, job numbers, and Gmail email intake.
 
 ## Completed work
 
@@ -16,16 +16,17 @@ Phase 1 authentication and user-management work is complete and verified locally
 - [x] Google OAuth sign-in verified successfully in a browser
 - [x] Local email/password sign-in edge cases verified manually
 - [x] Trustee-only job access and round-robin assignment implemented
+- [x] Gmail email-intake POC implemented
 
 ## Current status summary
 
 The 2026-07-30 trustee-only pivot replaced `Administrator`/`Trustee` roles and granular job permissions with a single trustee user model plus an `IsPortalAdmin` flag. Every enabled user is a trustee. Portal admins manage users, access requests, and manual job reassignment. All enabled trustees can view and create jobs. New jobs auto-assign by deterministic round robin across enabled trustees, including portal admins. Only portal admins or the assigned trustee can edit job details, change status, or edit status-history notes.
 
-The foundation remains stable: auth, user management, database access, local password login, access requests, and local dev flow all still work.
+The foundation remains stable: auth, user management, database access, local password login, access requests, and local dev flow all still work. Email-created jobs start as `Open` with no unit/property selected; status changes are blocked until a trustee/admin selects the correct unit.
 
 ## Recommended next priority
 
-Click-test the trustee-only job workflow with one portal admin trustee and at least one non-admin trustee, then pick the next larger Phase 2 track: Email integration, or Assignment engine routing/notifications on top of the current round-robin/manual-assign foundation.
+Run the email-intake manual test with the dedicated Rietvlei Gmail account, then decide whether to harden intake filtering or continue to the Assignment engine routing/notifications track.
 
 ### Suggested Phase 2 sequence
 
@@ -41,8 +42,9 @@ Click-test the trustee-only job workflow with one portal admin trustee and at le
 
    New jobs auto-assign to enabled trustees using deterministic round robin ordered by `CreatedAtUtc` then `Id`. Portal admins are included in the rotation. Portal admins alone can manually reassign jobs. Portal admins and assigned trustees can edit job details, change status, and edit status-history notes; other trustees can view jobs/history only.
 
-3. Email integration
-   - Add inbound or outbound email handling for job creation and notifications.
+3. Email integration - implemented as a POC.
+
+   Gmail polling uses MailKit against the configured mailbox/folder. New messages create `JobSource.Email` jobs with generated job numbers, no initial unit/property, and existing round-robin assignment. The app sends an acknowledgement to the sender with the job number, assigned trustee wording, and 24-hour response aim, BCCing enabled trustees. Duplicate tracking and failure diagnostics are stored in `EmailIntakeMessages`.
 
 4. Assignment engine
    - Build routing/notification rules on top of the current round-robin/manual-assignment foundation.
@@ -62,8 +64,9 @@ Click-test the trustee-only job workflow with one portal admin trustee and at le
 
 ## Immediate next action
 
-1. Click-test trustee-only jobs: create several jobs, confirm round-robin assignment, confirm assigned-only edit/status controls, and confirm portal-admin-only reassignment.
-2. Then choose the next larger Phase 2 track: Email integration, or Assignment engine routing/notifications.
+1. Apply the latest migration and seed the email-intake system user.
+2. Configure Gmail intake secrets for the dedicated Rietvlei mailbox.
+3. Send a real test email, trigger `Email Intake -> Check now`, and verify the created job, acknowledgement email, trustee BCC, duplicate skip, and unit-required status lock.
 
 ## Update log
 
@@ -79,3 +82,4 @@ Click-test the trustee-only job workflow with one portal admin trustee and at le
 - 2026-07-30: Local email/password sign-in edge cases manually tested by the user and accepted for now.
 - 2026-07-30: Trustee-only job access and assignment implemented: removed roles and granular job permissions, added `IsPortalAdmin`, backfilled existing admins via `TrusteeOnlyPortalAdmins`, added round-robin job assignment, added job editing, enforced portal-admin-or-assigned-trustee mutation rules, and simplified user/access UIs. Verified with local migration, backend build, 22/22 domain tests, 47/47 application tests, frontend build, and frontend lint. Existing frontend Fast Refresh warning in `AuthContext.tsx` remains.
 - 2026-07-30: Jobs row UX refined: inline history/edit actions were moved into a larger job detail modal opened from the job title. The table keeps only quick status changes for authorized users and portal-admin assignment in the assigned-to column; the modal contains read-only job details, edit mode for authorized users, and a scrollable notes/history section. Verified with frontend build and lint.
+- 2026-07-31: Email-intake POC implemented: job numbers, nullable job property for email-created work, status lock until unit selection, Gmail IMAP polling, duplicate/failure tracking, email acknowledgements with trustee BCC, email-intake system user, portal-admin Email Intake screen, and setup docs. Verified with backend test/build and frontend build/lint.

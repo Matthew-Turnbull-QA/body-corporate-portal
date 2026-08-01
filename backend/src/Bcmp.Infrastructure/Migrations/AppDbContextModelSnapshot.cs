@@ -93,6 +93,67 @@ namespace Bcmp.Infrastructure.Migrations
                     b.ToTable("AccessRequests", (string)null);
                 });
 
+            modelBuilder.Entity("Bcmp.Domain.EmailIntake.EmailIntakeMessage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("FailureReason")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<Guid?>("JobId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("MessageId")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateTimeOffset>("ProcessedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ProviderMessageKey")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateTimeOffset>("ReceivedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("SenderDisplayName")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("SenderEmail")
+                        .IsRequired()
+                        .HasMaxLength(320)
+                        .HasColumnType("character varying(320)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("Subject")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("JobId");
+
+                    b.HasIndex("MessageId")
+                        .IsUnique()
+                        .HasFilter("\"MessageId\" IS NOT NULL");
+
+                    b.HasIndex("ProviderMessageKey")
+                        .IsUnique();
+
+                    b.ToTable("EmailIntakeMessages", (string)null);
+                });
+
             modelBuilder.Entity("Bcmp.Domain.Jobs.Job", b =>
                 {
                     b.Property<Guid>("Id")
@@ -113,7 +174,12 @@ namespace Bcmp.Infrastructure.Migrations
                         .HasMaxLength(4000)
                         .HasColumnType("character varying(4000)");
 
-                    b.Property<Guid>("PropertyId")
+                    b.Property<string>("JobNumber")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<Guid?>("PropertyId")
                         .HasColumnType("uuid");
 
                     b.Property<string>("Source")
@@ -137,6 +203,9 @@ namespace Bcmp.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("AssignedTrusteeUserId");
+
+                    b.HasIndex("JobNumber")
+                        .IsUnique();
 
                     b.HasIndex("PropertyId");
 
@@ -253,6 +322,9 @@ namespace Bcmp.Infrastructure.Migrations
                         .HasColumnType("boolean");
 
                     b.Property<bool>("IsPortalAdmin")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsSystem")
                         .HasColumnType("boolean");
 
                     b.Property<DateTimeOffset?>("LastLoginAtUtc")

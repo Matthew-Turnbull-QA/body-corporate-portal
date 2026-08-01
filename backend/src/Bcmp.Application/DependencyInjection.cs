@@ -1,5 +1,6 @@
 using Bcmp.Application.AccessRequests;
 using Bcmp.Application.Auth;
+using Bcmp.Application.EmailIntake;
 using Bcmp.Application.Jobs;
 using Bcmp.Application.Properties;
 using Bcmp.Application.Users;
@@ -17,6 +18,7 @@ public static class DependencyInjection
         services.AddScoped<IJobService, JobService>();
         services.AddScoped<IAuthenticationService, AuthenticationService>();
         services.AddScoped<IAccessRequestService, AccessRequestService>();
+        services.AddScoped<IEmailIntakeService, EmailIntakeService>();
 
         return services;
     }

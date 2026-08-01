@@ -1,6 +1,6 @@
 # Suggested Changes Log
 
-Last updated: 2026-07-30
+Last updated: 2026-07-31
 
 Use this as the running list for click-through notes, UX polish, bugs, and feature ideas. Keep entries small and actionable so we can promote them into implementation work when ready.
 
@@ -18,6 +18,9 @@ Use this as the running list for click-through notes, UX polish, bugs, and featu
 | Done | Jobs | Ask for optional notes when changing status. | Implemented 2026-07-29: status select opens a confirmation modal with optional notes before saving. |
 | Done | Jobs | Track status-change audit history and allow admin note edits. | Implemented 2026-07-29: `JobStatusHistory` records transitions, all users with `LoadJobs` can view history, and Administrators can edit notes while immutable audit fields remain unchanged. |
 | New | Users | Show whether each user has a local password set. | Add a read-only field/tag to the Users screen so portal admins can tell whether password sign-in is configured for a user. |
+| New | Access Requests | Keep linked access-request user details in sync after user edits. | If a portal admin updates a user's name, the corresponding access request page still shows the old name, which can cause confusion. |
+| Deferred | Email Intake | Harden inbound email against junk once the dedicated Gmail address becomes public. | The Rietvlei intake mailbox will eventually reach marketers/spam lists; POC should rely on Gmail spam handling plus a dedicated label, then later add allowlists, review queues, or stronger sender validation. |
+| Deferred | Email Notifications | Email the requester when notes are added to their job. | Scope later: decide which note types should trigger requester updates, whether internal-only notes are needed, and how replies should be worded. |
 
 ## Status Key
 

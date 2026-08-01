@@ -14,7 +14,7 @@ public interface IJobService
     /// with <see cref="JobSource.Email"/> instead of adding a parallel creation path).
     /// </summary>
     Task<JobDto> CreateJobAsync(
-        Guid propertyId,
+        Guid? propertyId,
         string title,
         string? description,
         JobSource source,
@@ -23,7 +23,7 @@ public interface IJobService
 
     Task<JobDto> UpdateJobAsync(
         Guid id,
-        Guid propertyId,
+        Guid? propertyId,
         string title,
         string? description,
         Guid updatedByUserId,

@@ -3,7 +3,8 @@ namespace Bcmp.Domain.Jobs;
 public sealed record Job
 {
     public required Guid Id { get; init; }
-    public required Guid PropertyId { get; init; }
+    public required string JobNumber { get; init; }
+    public required Guid? PropertyId { get; init; }
     public required string Title { get; init; }
     public required string Description { get; init; }
     public required JobStatus Status { get; init; }
@@ -15,13 +16,19 @@ public sealed record Job
 
     public static Job Create(
         Guid id,
-        Guid propertyId,
+        string jobNumber,
+        Guid? propertyId,
         string title,
         string? description,
         JobSource source,
         Guid createdByUserId,
         DateTimeOffset createdAtUtc)
     {
+        if (string.IsNullOrWhiteSpace(jobNumber))
+        {
+            throw new ArgumentException("Job number cannot be empty.", nameof(jobNumber));
+        }
+
         if (string.IsNullOrWhiteSpace(title))
         {
             throw new ArgumentException("Title cannot be empty.", nameof(title));
@@ -30,6 +37,7 @@ public sealed record Job
         return new Job
         {
             Id = id,
+            JobNumber = jobNumber.Trim(),
             PropertyId = propertyId,
             Title = title.Trim(),
             Description = description?.Trim() ?? string.Empty,
@@ -41,7 +49,7 @@ public sealed record Job
         };
     }
 
-    public Job WithDetails(Guid propertyId, string title, string? description, DateTimeOffset updatedAtUtc)
+    public Job WithDetails(Guid? propertyId, string title, string? description, DateTimeOffset updatedAtUtc)
     {
         if (string.IsNullOrWhiteSpace(title))
         {

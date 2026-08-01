@@ -43,11 +43,19 @@ const statusChipClass: Record<JobStatus, string> = {
   Cancelled: "status-chip--cancelled",
 };
 
-type SortKey = "title" | "propertyName" | "status" | "createdAtUtc" | "updatedAtUtc" | "assignedTrusteeName";
+type SortKey =
+  | "jobNumber"
+  | "title"
+  | "propertyName"
+  | "status"
+  | "createdAtUtc"
+  | "updatedAtUtc"
+  | "assignedTrusteeName";
 type SortDirection = "asc" | "desc";
 type TableColumnKey = SortKey | "actions";
 
 const columns: { key: SortKey; label: string }[] = [
+  { key: "jobNumber", label: "Job #" },
   { key: "title", label: "Title" },
   { key: "propertyName", label: "Property" },
   { key: "status", label: "Status" },
@@ -62,8 +70,15 @@ interface StatusChangeDraft {
   note: string;
 }
 
-interface EditJobDraft {
+interface UnitRequiredDraft {
+  job: JobDto;
+  mode: "details" | "status";
   propertyId: string;
+  nextStatus?: JobStatus;
+}
+
+interface EditJobDraft {
+  propertyId: string | null;
   title: string;
   description: string;
 }
@@ -93,6 +108,10 @@ function formatDateTime(value: string) {
   return new Date(value).toLocaleString();
 }
 
+function displayProperty(job: JobDto) {
+  return job.propertyName ?? "Unit required";
+}
+
 function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
 }
@@ -106,8 +125,9 @@ function columnWidth(length: number, min: number, max: number) {
 }
 
 function buildTableColumnStyles(jobs: JobDto[], trusteeNames: string[]): TableColumnStyle[] {
+  const jobNumberLength = maxLength(["Job #", ...jobs.map((job) => job.jobNumber)]);
   const titleLength = maxLength(["Title", ...jobs.map((job) => job.title)]);
-  const propertyLength = maxLength(["Property", ...jobs.map((job) => job.propertyName)]);
+  const propertyLength = maxLength(["Property", ...jobs.map(displayProperty)]);
   const statusLength = maxLength(["Status", ...Object.values(statusLabels)]);
   const assignedLength = maxLength([
     "Assigned to",
@@ -119,6 +139,7 @@ function buildTableColumnStyles(jobs: JobDto[], trusteeNames: string[]): TableCo
   const updatedLength = maxLength(["Last updated", ...jobs.map((job) => formatDateTime(job.updatedAtUtc))]);
 
   return [
+    { key: "jobNumber", style: { width: columnWidth(jobNumberLength, 14, 18) } },
     { key: "title", style: { width: columnWidth(titleLength, 18, 36) } },
     { key: "propertyName", style: { width: columnWidth(propertyLength, 16, 30) } },
     { key: "status", style: { width: columnWidth(statusLength, 12, 16) } },
@@ -264,12 +285,13 @@ export function JobsListPage() {
   const [sortKey, setSortKey] = useState<SortKey>("createdAtUtc");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [statusChangeDraft, setStatusChangeDraft] = useState<StatusChangeDraft | null>(null);
+  const [unitRequiredDraft, setUnitRequiredDraft] = useState<UnitRequiredDraft | null>(null);
   const [selectedJob, setSelectedJob] = useState<JobDto | null>(null);
   const [isDetailEditing, setIsDetailEditing] = useState(false);
   const [detailEditDraft, setDetailEditDraft] = useState<EditJobDraft>(emptyForm);
 
   useEffect(() => {
-    if (!isAdding && !statusChangeDraft && !selectedJob) {
+    if (!isAdding && !statusChangeDraft && !unitRequiredDraft && !selectedJob) {
       return;
     }
 
@@ -278,7 +300,9 @@ export function JobsListPage() {
         return;
       }
 
-      if (statusChangeDraft) {
+      if (unitRequiredDraft) {
+        setUnitRequiredDraft(null);
+      } else if (statusChangeDraft) {
         setStatusChangeDraft(null);
       } else if (selectedJob) {
         closeJobDetail();
@@ -289,7 +313,7 @@ export function JobsListPage() {
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [isAdding, statusChangeDraft, selectedJob]);
+  }, [isAdding, statusChangeDraft, unitRequiredDraft, selectedJob]);
 
   function toggleSort(key: SortKey) {
     if (key === sortKey) {
@@ -338,7 +362,53 @@ export function JobsListPage() {
     }
   }
 
+  async function handleUnitRequiredSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!unitRequiredDraft || !unitRequiredDraft.propertyId) {
+      return;
+    }
+
+    try {
+      const updated = await updateJob.mutateAsync({
+        id: unitRequiredDraft.job.id,
+        request: {
+          propertyId: unitRequiredDraft.propertyId,
+          title: unitRequiredDraft.job.title,
+          description: unitRequiredDraft.job.description,
+        },
+      });
+
+      setUnitRequiredDraft(null);
+
+      if (unitRequiredDraft.mode === "status" && unitRequiredDraft.nextStatus) {
+        setStatusChangeDraft({ job: updated, nextStatus: unitRequiredDraft.nextStatus, note: "" });
+        return;
+      }
+
+      setSelectedJob(updated);
+      setIsDetailEditing(false);
+      setDetailEditDraft({
+        propertyId: updated.propertyId,
+        title: updated.title,
+        description: updated.description,
+      });
+    } catch {
+      // Mutation state renders the error inside the modal.
+    }
+  }
+
+  function openUnitRequiredModal(job: JobDto, mode: UnitRequiredDraft["mode"], nextStatus?: JobStatus) {
+    setSelectedJob(null);
+    setIsDetailEditing(false);
+    setUnitRequiredDraft({ job, mode, nextStatus, propertyId: "" });
+  }
+
   function openJobDetail(job: JobDto) {
+    if (!job.propertyId && canMutateJob(job)) {
+      openUnitRequiredModal(job, "details");
+      return;
+    }
+
     setSelectedJob(job);
     setIsDetailEditing(false);
     setDetailEditDraft({
@@ -460,12 +530,15 @@ export function JobsListPage() {
         onKeyDown={(event) => handleJobRowKeyDown(job, event)}
         aria-label={`Open details for ${job.title}`}
       >
+          <td>{job.jobNumber}</td>
           <td>
             <button className="job-title-button" type="button" onClick={() => openJobDetail(job)}>
               {job.title}
             </button>
           </td>
-          <td>{job.propertyName}</td>
+          <td>
+            <span className={job.propertyId ? undefined : "table-warning-text"}>{displayProperty(job)}</span>
+          </td>
           <td>
             <span className={`status-chip ${statusChipClass[job.status]}`}>{statusLabels[job.status]}</span>
           </td>
@@ -500,6 +573,11 @@ export function JobsListPage() {
                   onChange={(event) => {
                     const nextStatus = event.target.value as JobStatus;
                     if (nextStatus !== job.status) {
+                      if (!job.propertyId) {
+                        openUnitRequiredModal(job, "status", nextStatus);
+                        return;
+                      }
+
                       setStatusChangeDraft({ job, nextStatus, note: "" });
                     }
                   }}
@@ -517,6 +595,87 @@ export function JobsListPage() {
     );
   }
 
+  function renderUnitRequiredModal(draft: UnitRequiredDraft) {
+    const actionText =
+      draft.mode === "status" && draft.nextStatus
+        ? `before moving this job to ${statusLabels[draft.nextStatus].toLowerCase()}`
+        : "before opening the job details";
+
+    return (
+      <div className="dialog-overlay" role="dialog" aria-modal="true" onClick={() => setUnitRequiredDraft(null)}>
+        <form className="dialog dialog--large unit-required-modal" onClick={(event) => event.stopPropagation()} onSubmit={handleUnitRequiredSubmit}>
+          <div className="unit-required-modal__header">
+            <div>
+              <p className="table-warning-text">Unit required</p>
+              <h3>{draft.job.title}</h3>
+              <p className="text-muted">
+                Assign the correct unit {actionText}. The original email is shown below for reference.
+              </p>
+            </div>
+          </div>
+
+          <dl className="job-detail-grid">
+            <div>
+              <dt>Job #</dt>
+              <dd>{draft.job.jobNumber}</dd>
+            </div>
+            <div>
+              <dt>Status</dt>
+              <dd>{statusLabels[draft.job.status]}</dd>
+            </div>
+            <div>
+              <dt>Assigned to</dt>
+              <dd>{draft.job.assignedTrusteeName ?? "Unassigned"}</dd>
+            </div>
+            <div>
+              <dt>Created</dt>
+              <dd>{formatDateTime(draft.job.createdAtUtc)}</dd>
+            </div>
+          </dl>
+
+          <label className="dialog__field">
+            Unit / property
+            <select
+              value={draft.propertyId}
+              onChange={(event) =>
+                setUnitRequiredDraft((current) =>
+                  current ? { ...current, propertyId: event.target.value } : current,
+                )
+              }
+              required
+            >
+              <option value="">Select a unit</option>
+              {properties?.map((property) => (
+                <option key={property.id} value={property.id}>
+                  {property.name}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <section className="job-detail-description">
+            <h4>Original email</h4>
+            <pre className="email-preview">{draft.job.description || "No email content."}</pre>
+          </section>
+
+          {updateJob.isError && (
+            <p className="error-banner" role="alert">
+              Failed to assign unit.
+            </p>
+          )}
+          <div className="dialog__actions">
+            <button className="button button--ghost" type="button" onClick={() => setUnitRequiredDraft(null)}>
+              Cancel
+            </button>
+            <button className="button button--primary" type="submit" disabled={updateJob.isPending || !draft.propertyId}>
+              Save unit
+            </button>
+          </div>
+        </form>
+      </div>
+    );
+  }
+
   function renderJobDetailModal(job: JobDto) {
     const canUpdateThisJob = canMutateJob(job);
 
@@ -527,7 +686,7 @@ export function JobsListPage() {
             <div>
               <span className={`status-chip ${statusChipClass[job.status]}`}>{statusLabels[job.status]}</span>
               <h3>{job.title}</h3>
-              <p className="text-muted">{job.propertyName}</p>
+              <p className={job.propertyId ? "text-muted" : "table-warning-text"}>{displayProperty(job)}</p>
             </div>
             <div className="job-detail-modal__actions">
               {canUpdateThisJob && !isDetailEditing && (
@@ -546,15 +705,12 @@ export function JobsListPage() {
               <label className="dialog__field">
                 Property
                 <select
-                  value={detailEditDraft.propertyId}
+                  value={detailEditDraft.propertyId ?? ""}
                   onChange={(event) =>
-                    setDetailEditDraft((current) => ({ ...current, propertyId: event.target.value }))
+                    setDetailEditDraft((current) => ({ ...current, propertyId: event.target.value || null }))
                   }
-                  required
                 >
-                  <option value="" disabled>
-                    Select a property
-                  </option>
+                  <option value="">Unit required</option>
                   {properties?.map((property) => (
                     <option key={property.id} value={property.id}>
                       {property.name}
@@ -597,6 +753,10 @@ export function JobsListPage() {
           ) : (
             <div className="job-detail-body">
               <dl className="job-detail-grid">
+                <div>
+                  <dt>Job #</dt>
+                  <dd>{job.jobNumber}</dd>
+                </div>
                 <div>
                   <dt>Assigned to</dt>
                   <dd>{job.assignedTrusteeName ?? "Unassigned"}</dd>
@@ -798,6 +958,7 @@ export function JobsListPage() {
         </div>
       )}
 
+      {unitRequiredDraft && renderUnitRequiredModal(unitRequiredDraft)}
       {selectedJob && renderJobDetailModal(selectedJob)}
     </section>
   );

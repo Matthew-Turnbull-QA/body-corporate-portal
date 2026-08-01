@@ -8,7 +8,7 @@ public sealed class UserService(IUserRepository userRepository, IPasswordHasher 
     public async Task<IReadOnlyList<UserDto>> GetAllAsync(CancellationToken cancellationToken = default)
     {
         var users = await userRepository.GetAllAsync(cancellationToken);
-        return users.Select(UserDto.FromDomain).ToList();
+        return users.Where(user => !user.IsSystem).Select(UserDto.FromDomain).ToList();
     }
 
     public async Task<UserDto?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
@@ -79,7 +79,7 @@ public sealed class UserService(IUserRepository userRepository, IPasswordHasher 
     {
         var users = await userRepository.GetAllAsync(cancellationToken);
         return users
-            .Where(user => user.IsEnabled)
+            .Where(user => user.IsEnabled && !user.IsSystem)
             .Select(UserDto.FromDomain)
             .ToList();
     }

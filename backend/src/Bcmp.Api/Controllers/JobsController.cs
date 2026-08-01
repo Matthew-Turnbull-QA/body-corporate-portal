@@ -14,7 +14,7 @@ public sealed class JobsController(IJobService jobService) : ControllerBase
 {
     public sealed record CreateJobRequest(Guid PropertyId, string Title, string? Description);
 
-    public sealed record UpdateJobRequest(Guid PropertyId, string Title, string? Description);
+    public sealed record UpdateJobRequest(Guid? PropertyId, string Title, string? Description);
 
     public sealed record UpdateJobStatusRequest(JobStatus Status, string? Note);
 

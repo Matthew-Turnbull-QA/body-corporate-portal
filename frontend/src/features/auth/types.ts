@@ -3,6 +3,7 @@ export interface UserDto {
   email: string;
   displayName: string;
   isPortalAdmin: boolean;
+  isSystem: boolean;
   hasLocalPassword: boolean;
   isEnabled: boolean;
   createdAtUtc: string;

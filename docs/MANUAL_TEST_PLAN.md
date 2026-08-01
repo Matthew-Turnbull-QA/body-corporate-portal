@@ -62,3 +62,16 @@ rejection, Trustee route guard) are still outstanding — need a second real
 Google test-user account to exercise.
 
 Record the outcome of each step here (pass/fail + date) once you've run through it.
+
+## Email intake POC checklist
+
+Run this after applying the `EmailIntakeJobNumbers` migration and seeding the email-intake system user.
+
+1. Configure email-intake secrets for the dedicated Rietvlei Gmail account and start the API with `EmailIntake:Enabled=true`.
+2. Sign in as a portal admin and open `/email-intake`.
+3. Send one test email to the configured Gmail mailbox/folder. Expect: clicking **Check now** creates one `Open` job with source `Email`, a `BCMP-######` job number, no unit selected, and a round-robin assigned trustee.
+4. Confirm the sender receives an acknowledgement with subject `Body Corporate request received - Job #BCMP-######`, the 24-hour response wording, and `It has been assigned to Trustee {Name} {Surname}.`
+5. Confirm enabled trustees are BCC'd on the acknowledgement.
+6. Open the created job. Expect: property/unit shows as `Unit required`, and status changes are disabled until a unit is selected.
+7. Select the correct unit/property and save. Expect: status changes are now available to the assigned trustee or portal admin.
+8. Trigger another **Check now** without sending new mail. Expect: no duplicate job is created for the same email.

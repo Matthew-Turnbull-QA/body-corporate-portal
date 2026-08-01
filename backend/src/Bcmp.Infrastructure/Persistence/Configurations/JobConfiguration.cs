@@ -12,8 +12,14 @@ public sealed class JobConfiguration : IEntityTypeConfiguration<Job>
 
         builder.HasKey(j => j.Id);
 
+        builder.Property(j => j.JobNumber)
+            .IsRequired()
+            .HasMaxLength(20);
+
+        builder.HasIndex(j => j.JobNumber).IsUnique();
+
         builder.Property(j => j.PropertyId)
-            .IsRequired();
+            .IsRequired(false);
 
         builder.HasIndex(j => j.PropertyId);
 

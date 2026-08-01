@@ -45,3 +45,13 @@ Editing job details, changing status, and editing status-history notes require e
 `Job.UpdatedAtUtc` is bumped in the service layer for mutating job operations (`UpdateJobAsync`, `UpdateStatusAsync`, and `AssignTrusteeAsync`) using the same `TimeProvider` used for creation timestamps.
 
 The Jobs UI groups `Open` and `InProgress` under Active, and `Completed` and `Cancelled` under Closed.
+
+Every job has a generated human-readable `JobNumber` such as `BCMP-000123`, backed by a PostgreSQL sequence. `PropertyId` is nullable so email-created jobs can enter the system before a trustee/admin selects the correct unit. Manual job creation still requires a property, and `JobService.UpdateStatusAsync` blocks any move away from `Open` until a property/unit has been selected.
+
+## Email intake
+
+Gmail intake is implemented as application-side polling through MailKit. IMAP and SMTP authenticate with OAuth2/XOAUTH2 using a stored refresh token, not a Gmail app password. The hosted service is disabled unless `EmailIntake:Enabled=true`; portal admins can also trigger a poll through `POST /api/email-intake/poll-now` and inspect recent processing records through `GET /api/email-intake/messages`.
+
+Email-created jobs use the existing `JobService.CreateJobAsync` path with `JobSource.Email`, a non-login system user for audit fields, no initial property/unit, and the existing round-robin trustee assignment. The system user is marked with `User.IsSystem`, excluded from normal login, assignable trustee lists, and round-robin assignment.
+
+Processed email metadata is stored in `EmailIntakeMessages` so the app can skip duplicates by provider key or `Message-Id` and retain failure diagnostics. On successful job creation, the app sends a Gmail acknowledgement to the original sender with subject `Body Corporate request received - Job #...`, quotes the assigned trustee as `Trustee {Name} {Surname}`, states a 24-hour response aim, and BCCs all enabled trustees.

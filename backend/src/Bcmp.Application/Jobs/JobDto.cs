@@ -4,8 +4,9 @@ namespace Bcmp.Application.Jobs;
 
 public sealed record JobDto(
     Guid Id,
-    Guid PropertyId,
-    string PropertyName,
+    string JobNumber,
+    Guid? PropertyId,
+    string? PropertyName,
     string Title,
     string Description,
     JobStatus Status,
@@ -16,8 +17,9 @@ public sealed record JobDto(
     Guid? AssignedTrusteeUserId,
     string? AssignedTrusteeName)
 {
-    public static JobDto FromDomain(Job job, string propertyName, string? assignedTrusteeName = null) => new(
+    public static JobDto FromDomain(Job job, string? propertyName, string? assignedTrusteeName = null) => new(
         job.Id,
+        job.JobNumber,
         job.PropertyId,
         propertyName,
         job.Title,

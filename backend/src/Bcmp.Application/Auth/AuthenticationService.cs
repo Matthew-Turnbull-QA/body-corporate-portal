@@ -20,7 +20,7 @@ public sealed class AuthenticationService(
 
         var normalizedEmail = User.NormalizeEmail(identity.Email);
         var user = await userRepository.GetByEmailAsync(normalizedEmail, cancellationToken);
-        if (user is null || !user.IsEnabled)
+        if (user is null || !user.IsEnabled || user.IsSystem)
         {
             return null;
         }
@@ -41,7 +41,7 @@ public sealed class AuthenticationService(
 
         var normalizedEmail = User.NormalizeEmail(email);
         var user = await userRepository.GetByEmailAsync(normalizedEmail, cancellationToken);
-        if (user is null || !user.IsEnabled || user.PasswordHash is null)
+        if (user is null || !user.IsEnabled || user.IsSystem || user.PasswordHash is null)
         {
             return null;
         }

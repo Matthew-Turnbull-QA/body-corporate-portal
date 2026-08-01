@@ -51,6 +51,12 @@ export function AppLayout() {
                 >
                   Access
                 </NavLink>
+                <NavLink
+                  className={({ isActive }) => `app-shell__nav-link ${isActive ? "active" : ""}`}
+                  to="/email-intake"
+                >
+                  Email
+                </NavLink>
               </>
             )}
           </nav>

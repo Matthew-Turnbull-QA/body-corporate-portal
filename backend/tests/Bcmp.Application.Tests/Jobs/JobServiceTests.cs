@@ -19,6 +19,7 @@ public class JobServiceTests
     private IJobRepository _jobRepository = null!;
     private IPropertyRepository _propertyRepository = null!;
     private IUserRepository _userRepository = null!;
+    private IJobNumberGenerator _jobNumberGenerator = null!;
     private JobService _sut = null!;
 
     [SetUp]
@@ -27,7 +28,9 @@ public class JobServiceTests
         _jobRepository = Substitute.For<IJobRepository>();
         _propertyRepository = Substitute.For<IPropertyRepository>();
         _userRepository = Substitute.For<IUserRepository>();
-        _sut = new JobService(_jobRepository, _propertyRepository, _userRepository, new FixedTimeProvider(Now));
+        _jobNumberGenerator = Substitute.For<IJobNumberGenerator>();
+        _jobNumberGenerator.GenerateNextAsync(Arg.Any<CancellationToken>()).Returns("BCMP-000001");
+        _sut = new JobService(_jobRepository, _propertyRepository, _userRepository, _jobNumberGenerator, new FixedTimeProvider(Now));
     }
 
     private static Property MakeProperty(Guid? id = null) =>
@@ -53,6 +56,7 @@ public class JobServiceTests
         var result = await _sut.CreateJobAsync(property.Id, "Leaking roof", "Ceiling in unit 4", JobSource.Manual, admin.Id);
 
         result.Title.Should().Be("Leaking roof");
+        result.JobNumber.Should().Be("BCMP-000001");
         result.Status.Should().Be(JobStatus.Open);
         result.AssignedTrusteeUserId.Should().Be(admin.Id);
         result.AssignedTrusteeName.Should().Be("Alex Admin");
@@ -68,7 +72,7 @@ public class JobServiceTests
         var first = MakeTrustee(Guid.NewGuid(), createdAt: Now.AddMinutes(-3));
         var disabled = MakeTrustee(Guid.NewGuid(), enabled: false, createdAt: Now.AddMinutes(-2)) with { Email = "disabled@example.com" };
         var second = MakeAdmin(Guid.NewGuid(), createdAt: Now.AddMinutes(-1));
-        var priorJob = Job.Create(Guid.NewGuid(), property.Id, "Prior", null, JobSource.Manual, first.Id, Now.AddHours(-1))
+        var priorJob = Job.Create(Guid.NewGuid(), "BCMP-000000", property.Id, "Prior", null, JobSource.Manual, first.Id, Now.AddHours(-1))
             with { AssignedTrusteeUserId = first.Id };
         _propertyRepository.GetByIdAsync(property.Id).Returns(property);
         _userRepository.GetByIdAsync(second.Id).Returns(second);
@@ -79,6 +83,37 @@ public class JobServiceTests
 
         result.AssignedTrusteeUserId.Should().Be(second.Id);
         result.AssignedTrusteeName.Should().Be("Alex Admin");
+    }
+
+    [Test]
+    public async Task CreateJobAsync_WithEmailSourceAllowsMissingProperty()
+    {
+        var systemUser = User.Create(Guid.NewGuid(), "email-intake@system.local", "Email Intake", Now, isSystem: true);
+        var trustee = MakeTrustee();
+        _userRepository.GetByIdAsync(systemUser.Id).Returns(systemUser);
+        _userRepository.GetAllAsync().Returns([systemUser, trustee]);
+        _jobRepository.GetAllAsync().Returns([]);
+
+        var result = await _sut.CreateJobAsync(null, "Email subject", "Email body", JobSource.Email, systemUser.Id);
+
+        result.PropertyId.Should().BeNull();
+        result.PropertyName.Should().BeNull();
+        result.Source.Should().Be(JobSource.Email);
+        result.AssignedTrusteeUserId.Should().Be(trustee.Id);
+        await _jobRepository.Received(1).AddAsync(
+            Arg.Is<Job>(job => job.PropertyId == null && job.JobNumber == "BCMP-000001"),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task CreateJobAsync_WithManualSourceAndMissingProperty_Throws()
+    {
+        var admin = MakeAdmin();
+
+        var act = async () => await _sut.CreateJobAsync(null, "Manual job", null, JobSource.Manual, admin.Id);
+
+        await act.Should().ThrowAsync<ArgumentException>().WithParameterName("propertyId");
+        await _jobRepository.DidNotReceive().AddAsync(Arg.Any<Job>(), Arg.Any<CancellationToken>());
     }
 
     [Test]
@@ -98,7 +133,7 @@ public class JobServiceTests
         var oldProperty = MakeProperty();
         var newProperty = MakeProperty();
         var trustee = MakeTrustee();
-        var job = Job.Create(Guid.NewGuid(), oldProperty.Id, "Old title", "Old", JobSource.Manual, trustee.Id, Now)
+        var job = Job.Create(Guid.NewGuid(), "BCMP-000001", oldProperty.Id, "Old title", "Old", JobSource.Manual, trustee.Id, Now)
             with { AssignedTrusteeUserId = trustee.Id };
         _jobRepository.GetByIdAsync(job.Id).Returns(job);
         _userRepository.GetByIdAsync(trustee.Id).Returns(trustee);
@@ -120,7 +155,7 @@ public class JobServiceTests
         var property = MakeProperty();
         var assigned = MakeTrustee();
         var other = MakeTrustee(Guid.NewGuid()) with { Email = "other@example.com" };
-        var job = Job.Create(Guid.NewGuid(), property.Id, "Title", "Description", JobSource.Manual, assigned.Id, Now)
+        var job = Job.Create(Guid.NewGuid(), "BCMP-000001", property.Id, "Title", "Description", JobSource.Manual, assigned.Id, Now)
             with { AssignedTrusteeUserId = assigned.Id };
         _jobRepository.GetByIdAsync(job.Id).Returns(job);
         _userRepository.GetByIdAsync(other.Id).Returns(other);
@@ -136,7 +171,7 @@ public class JobServiceTests
     {
         var property = MakeProperty();
         var admin = MakeAdmin();
-        var job = Job.Create(Guid.NewGuid(), property.Id, "Title", "Description", JobSource.Manual, admin.Id, Now);
+        var job = Job.Create(Guid.NewGuid(), "BCMP-000001", property.Id, "Title", "Description", JobSource.Manual, admin.Id, Now);
         _jobRepository.GetByIdAsync(job.Id).Returns(job);
         _userRepository.GetByIdAsync(admin.Id).Returns(admin);
         _propertyRepository.GetByIdAsync(property.Id).Returns(property);
@@ -153,8 +188,8 @@ public class JobServiceTests
         var property = MakeProperty();
         var trustee = MakeTrustee();
         var later = Now.AddDays(1);
-        var sut = new JobService(_jobRepository, _propertyRepository, _userRepository, new FixedTimeProvider(later));
-        var job = Job.Create(Guid.NewGuid(), property.Id, "Leaking roof", "Description", JobSource.Manual, trustee.Id, Now)
+        var sut = new JobService(_jobRepository, _propertyRepository, _userRepository, _jobNumberGenerator, new FixedTimeProvider(later));
+        var job = Job.Create(Guid.NewGuid(), "BCMP-000001", property.Id, "Leaking roof", "Description", JobSource.Manual, trustee.Id, Now)
             with { AssignedTrusteeUserId = trustee.Id };
         _jobRepository.GetByIdAsync(job.Id).Returns(job);
         _userRepository.GetByIdAsync(trustee.Id).Returns(trustee);
@@ -181,7 +216,7 @@ public class JobServiceTests
     {
         var assigned = MakeTrustee();
         var other = MakeTrustee(Guid.NewGuid()) with { Email = "other@example.com" };
-        var job = Job.Create(Guid.NewGuid(), Guid.NewGuid(), "Leaking roof", "Description", JobSource.Manual, assigned.Id, Now)
+        var job = Job.Create(Guid.NewGuid(), "BCMP-000001", Guid.NewGuid(), "Leaking roof", "Description", JobSource.Manual, assigned.Id, Now)
             with { AssignedTrusteeUserId = assigned.Id };
         _jobRepository.GetByIdAsync(job.Id).Returns(job);
         _userRepository.GetByIdAsync(other.Id).Returns(other);
@@ -199,7 +234,7 @@ public class JobServiceTests
     public async Task UpdateStatusAsync_WithSameStatus_ThrowsAndDoesNotCreateHistory()
     {
         var trustee = MakeTrustee();
-        var job = Job.Create(Guid.NewGuid(), Guid.NewGuid(), "Leaking roof", "Description", JobSource.Manual, trustee.Id, Now)
+        var job = Job.Create(Guid.NewGuid(), "BCMP-000001", Guid.NewGuid(), "Leaking roof", "Description", JobSource.Manual, trustee.Id, Now)
             with { AssignedTrusteeUserId = trustee.Id };
         _jobRepository.GetByIdAsync(job.Id).Returns(job);
         _userRepository.GetByIdAsync(trustee.Id).Returns(trustee);
@@ -214,11 +249,30 @@ public class JobServiceTests
     }
 
     [Test]
+    public async Task UpdateStatusAsync_WithoutPropertyAndNonOpenStatus_Throws()
+    {
+        var trustee = MakeTrustee();
+        var job = Job.Create(Guid.NewGuid(), "BCMP-000001", null, "Leaking roof", "Description", JobSource.Email, trustee.Id, Now)
+            with { AssignedTrusteeUserId = trustee.Id };
+        _jobRepository.GetByIdAsync(job.Id).Returns(job);
+        _userRepository.GetByIdAsync(trustee.Id).Returns(trustee);
+
+        var act = async () => await _sut.UpdateStatusAsync(job.Id, JobStatus.InProgress, "Starting", trustee.Id);
+
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("A property/unit must be selected before changing this job's status.");
+        await _jobRepository.DidNotReceive().UpdateStatusAsync(
+            Arg.Any<Job>(),
+            Arg.Any<JobStatusHistory>(),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Test]
     public async Task GetAllAsync_MapsDomainJobsToDtosWithPropertyAndTrusteeNames()
     {
         var property = MakeProperty();
         var trustee = MakeTrustee();
-        var job = Job.Create(Guid.NewGuid(), property.Id, "Leaking roof", "Description", JobSource.Manual, trustee.Id, Now)
+        var job = Job.Create(Guid.NewGuid(), "BCMP-000001", property.Id, "Leaking roof", "Description", JobSource.Manual, trustee.Id, Now)
             with { AssignedTrusteeUserId = trustee.Id };
         _jobRepository.GetAllAsync().Returns([job]);
         _propertyRepository.GetAllAsync().Returns([property]);
@@ -237,7 +291,7 @@ public class JobServiceTests
     {
         var changedBy = MakeTrustee();
         var editedBy = MakeAdmin();
-        var job = Job.Create(Guid.NewGuid(), Guid.NewGuid(), "Leaking roof", "Description", JobSource.Manual, changedBy.Id, Now);
+        var job = Job.Create(Guid.NewGuid(), "BCMP-000001", Guid.NewGuid(), "Leaking roof", "Description", JobSource.Manual, changedBy.Id, Now);
         var history = JobStatusHistory.Create(
             Guid.NewGuid(),
             job.Id,
@@ -266,11 +320,11 @@ public class JobServiceTests
     public async Task UpdateStatusHistoryNoteAsync_AssignedTrusteeCanUpdateNote()
     {
         var editor = MakeTrustee();
-        var job = Job.Create(Guid.NewGuid(), Guid.NewGuid(), "Leaking roof", "Description", JobSource.Manual, Guid.NewGuid(), Now)
+        var job = Job.Create(Guid.NewGuid(), "BCMP-000001", Guid.NewGuid(), "Leaking roof", "Description", JobSource.Manual, Guid.NewGuid(), Now)
             with { AssignedTrusteeUserId = editor.Id };
         var history = JobStatusHistory.Create(Guid.NewGuid(), job.Id, JobStatus.Open, JobStatus.Completed, "Original", Guid.NewGuid(), Now);
         var later = Now.AddDays(1);
-        var sut = new JobService(_jobRepository, _propertyRepository, _userRepository, new FixedTimeProvider(later));
+        var sut = new JobService(_jobRepository, _propertyRepository, _userRepository, _jobNumberGenerator, new FixedTimeProvider(later));
         _jobRepository.GetByIdAsync(job.Id).Returns(job);
         _jobRepository.GetStatusHistoryByIdAsync(history.Id).Returns(history);
         _userRepository.GetByIdAsync(editor.Id).Returns(editor);
@@ -292,7 +346,7 @@ public class JobServiceTests
         var property = MakeProperty();
         var admin = MakeAdmin();
         var trustee = MakeTrustee();
-        var job = Job.Create(Guid.NewGuid(), property.Id, "Leaking roof", "Description", JobSource.Manual, admin.Id, Now);
+        var job = Job.Create(Guid.NewGuid(), "BCMP-000001", property.Id, "Leaking roof", "Description", JobSource.Manual, admin.Id, Now);
         _jobRepository.GetByIdAsync(job.Id).Returns(job);
         _propertyRepository.GetByIdAsync(property.Id).Returns(property);
         _userRepository.GetByIdAsync(admin.Id).Returns(admin);
@@ -309,7 +363,7 @@ public class JobServiceTests
     public async Task AssignTrusteeAsync_NonAdminTrusteeCannotAssign()
     {
         var trustee = MakeTrustee();
-        var job = Job.Create(Guid.NewGuid(), Guid.NewGuid(), "Leaking roof", "Description", JobSource.Manual, trustee.Id, Now);
+        var job = Job.Create(Guid.NewGuid(), "BCMP-000001", Guid.NewGuid(), "Leaking roof", "Description", JobSource.Manual, trustee.Id, Now);
         _jobRepository.GetByIdAsync(job.Id).Returns(job);
         _userRepository.GetByIdAsync(trustee.Id).Returns(trustee);
 
@@ -324,12 +378,28 @@ public class JobServiceTests
     {
         var admin = MakeAdmin();
         var disabled = MakeTrustee(enabled: false);
-        var job = Job.Create(Guid.NewGuid(), Guid.NewGuid(), "Leaking roof", "Description", JobSource.Manual, admin.Id, Now);
+        var job = Job.Create(Guid.NewGuid(), "BCMP-000001", Guid.NewGuid(), "Leaking roof", "Description", JobSource.Manual, admin.Id, Now);
         _jobRepository.GetByIdAsync(job.Id).Returns(job);
         _userRepository.GetByIdAsync(admin.Id).Returns(admin);
         _userRepository.GetByIdAsync(disabled.Id).Returns(disabled);
 
         var act = async () => await _sut.AssignTrusteeAsync(job.Id, disabled.Id, admin.Id);
+
+        await act.Should().ThrowAsync<ArgumentException>();
+        await _jobRepository.DidNotReceive().UpdateAsync(Arg.Any<Job>(), Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task AssignTrusteeAsync_WithSystemUserTarget_Throws()
+    {
+        var admin = MakeAdmin();
+        var systemUser = User.Create(Guid.NewGuid(), "email-intake@system.local", "Email Intake", Now, isSystem: true);
+        var job = Job.Create(Guid.NewGuid(), "BCMP-000001", Guid.NewGuid(), "Leaking roof", "Description", JobSource.Manual, admin.Id, Now);
+        _jobRepository.GetByIdAsync(job.Id).Returns(job);
+        _userRepository.GetByIdAsync(admin.Id).Returns(admin);
+        _userRepository.GetByIdAsync(systemUser.Id).Returns(systemUser);
+
+        var act = async () => await _sut.AssignTrusteeAsync(job.Id, systemUser.Id, admin.Id);
 
         await act.Should().ThrowAsync<ArgumentException>();
         await _jobRepository.DidNotReceive().UpdateAsync(Arg.Any<Job>(), Arg.Any<CancellationToken>());

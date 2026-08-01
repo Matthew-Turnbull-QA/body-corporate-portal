@@ -7,6 +7,7 @@ import { RequirePortalAdmin } from "../features/auth/RequireRole";
 import { UsersListPage } from "../features/users/UsersListPage";
 import { PropertiesListPage } from "../features/properties/PropertiesListPage";
 import { JobsListPage } from "../features/jobs/JobsListPage";
+import { EmailIntakePage } from "../features/emailIntake/EmailIntakePage";
 import { AppLayout } from "./AppLayout";
 import { HomePage } from "./HomePage";
 
@@ -28,6 +29,7 @@ export const router = createBrowserRouter([
             children: [
               { path: "users", element: <UsersListPage /> },
               { path: "access-requests", element: <AccessRequestsPage /> },
+              { path: "email-intake", element: <EmailIntakePage /> },
             ],
           },
         ],

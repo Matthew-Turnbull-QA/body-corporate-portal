@@ -6,6 +6,7 @@ public sealed record User
     public required string Email { get; init; }
     public required string DisplayName { get; init; }
     public required bool IsPortalAdmin { get; init; }
+    public bool IsSystem { get; init; }
     public string? PasswordHash { get; init; }
     public bool IsEnabled { get; init; } = true;
     public required DateTimeOffset CreatedAtUtc { get; init; }
@@ -19,7 +20,8 @@ public sealed record User
         DateTimeOffset createdAtUtc,
         bool isPortalAdmin = false,
         Guid? createdByUserId = null,
-        string? passwordHash = null)
+        string? passwordHash = null,
+        bool isSystem = false)
     {
         if (string.IsNullOrWhiteSpace(email))
         {
@@ -37,6 +39,7 @@ public sealed record User
             Email = NormalizeEmail(email),
             DisplayName = displayName.Trim(),
             IsPortalAdmin = isPortalAdmin,
+            IsSystem = isSystem,
             PasswordHash = string.IsNullOrWhiteSpace(passwordHash) ? null : passwordHash,
             IsEnabled = true,
             CreatedAtUtc = createdAtUtc,

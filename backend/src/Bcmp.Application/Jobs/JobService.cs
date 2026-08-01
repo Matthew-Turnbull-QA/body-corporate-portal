@@ -9,6 +9,7 @@ public sealed class JobService(
     IJobRepository jobRepository,
     IPropertyRepository propertyRepository,
     IUserRepository userRepository,
+    IJobNumberGenerator jobNumberGenerator,
     TimeProvider timeProvider) : IJobService
 {
     public async Task<IReadOnlyList<JobDto>> GetAllAsync(CancellationToken cancellationToken = default)
@@ -22,7 +23,7 @@ public sealed class JobService(
         return jobs
             .Select(job => JobDto.FromDomain(
                 job,
-                propertyNames.GetValueOrDefault(job.PropertyId, "Unknown property"),
+                job.PropertyId is Guid propertyId ? propertyNames.GetValueOrDefault(propertyId, "Unknown property") : null,
                 job.AssignedTrusteeUserId is Guid trusteeId ? userNames.GetValueOrDefault(trusteeId, "Unknown user") : null))
             .ToList();
     }
@@ -35,33 +36,43 @@ public sealed class JobService(
             return null;
         }
 
-        var property = await propertyRepository.GetByIdAsync(job.PropertyId, cancellationToken);
+        var property = job.PropertyId is Guid propertyId
+            ? await propertyRepository.GetByIdAsync(propertyId, cancellationToken)
+            : null;
         var trusteeName = await ResolveTrusteeNameAsync(job.AssignedTrusteeUserId, cancellationToken);
         return JobDto.FromDomain(job, property?.Name ?? "Unknown property", trusteeName);
     }
 
     public async Task<JobDto> CreateJobAsync(
-        Guid propertyId,
+        Guid? propertyId,
         string title,
         string? description,
         JobSource source,
         Guid createdByUserId,
         CancellationToken cancellationToken = default)
     {
-        var property = await propertyRepository.GetByIdAsync(propertyId, cancellationToken)
-            ?? throw new KeyNotFoundException($"Property '{propertyId}' was not found.");
+        if (source == JobSource.Manual && propertyId is null)
+        {
+            throw new ArgumentException("Manual jobs require a property.", nameof(propertyId));
+        }
 
-        _ = await GetEnabledUserAsync(createdByUserId, cancellationToken);
+        var property = propertyId is Guid selectedPropertyId
+            ? await propertyRepository.GetByIdAsync(selectedPropertyId, cancellationToken)
+                ?? throw new KeyNotFoundException($"Property '{selectedPropertyId}' was not found.")
+            : null;
+
+        _ = await GetJobCreatorAsync(createdByUserId, cancellationToken);
         var assignedTrustee = await GetNextRoundRobinTrusteeAsync(cancellationToken);
-        var job = Job.Create(Guid.NewGuid(), propertyId, title, description, source, createdByUserId, timeProvider.GetUtcNow());
+        var jobNumber = await jobNumberGenerator.GenerateNextAsync(cancellationToken);
+        var job = Job.Create(Guid.NewGuid(), jobNumber, propertyId, title, description, source, createdByUserId, timeProvider.GetUtcNow());
         job = job with { AssignedTrusteeUserId = assignedTrustee.Id };
         await jobRepository.AddAsync(job, cancellationToken);
-        return JobDto.FromDomain(job, property.Name, assignedTrustee.DisplayName);
+        return JobDto.FromDomain(job, property?.Name, assignedTrustee.DisplayName);
     }
 
     public async Task<JobDto> UpdateJobAsync(
         Guid id,
-        Guid propertyId,
+        Guid? propertyId,
         string title,
         string? description,
         Guid updatedByUserId,
@@ -72,14 +83,16 @@ public sealed class JobService(
 
         await EnsureCanMutateJobAsync(job, updatedByUserId, cancellationToken);
 
-        var property = await propertyRepository.GetByIdAsync(propertyId, cancellationToken)
-            ?? throw new KeyNotFoundException($"Property '{propertyId}' was not found.");
+        var property = propertyId is Guid selectedPropertyId
+            ? await propertyRepository.GetByIdAsync(selectedPropertyId, cancellationToken)
+                ?? throw new KeyNotFoundException($"Property '{selectedPropertyId}' was not found.")
+            : null;
 
         var updated = job.WithDetails(propertyId, title, description, timeProvider.GetUtcNow());
         await jobRepository.UpdateAsync(updated, cancellationToken);
 
         var trusteeName = await ResolveTrusteeNameAsync(updated.AssignedTrusteeUserId, cancellationToken);
-        return JobDto.FromDomain(updated, property.Name, trusteeName);
+        return JobDto.FromDomain(updated, property?.Name, trusteeName);
     }
 
     public async Task<JobDto> UpdateStatusAsync(
@@ -99,12 +112,19 @@ public sealed class JobService(
             throw new InvalidOperationException($"Job '{id}' already has status '{status}'.");
         }
 
+        if (job.PropertyId is null && status != JobStatus.Open)
+        {
+            throw new InvalidOperationException("A property/unit must be selected before changing this job's status.");
+        }
+
         var now = timeProvider.GetUtcNow();
         var updated = job with { Status = status, UpdatedAtUtc = now };
         var history = JobStatusHistory.Create(Guid.NewGuid(), job.Id, job.Status, status, note, changedByUserId, now);
         await jobRepository.UpdateStatusAsync(updated, history, cancellationToken);
 
-        var property = await propertyRepository.GetByIdAsync(updated.PropertyId, cancellationToken);
+        var property = updated.PropertyId is Guid propertyId
+            ? await propertyRepository.GetByIdAsync(propertyId, cancellationToken)
+            : null;
         var trusteeName = await ResolveTrusteeNameAsync(updated.AssignedTrusteeUserId, cancellationToken);
         return JobDto.FromDomain(updated, property?.Name ?? "Unknown property", trusteeName);
     }
@@ -168,7 +188,7 @@ public sealed class JobService(
             var trustee = await userRepository.GetByIdAsync(trusteeUserId.Value, cancellationToken)
                 ?? throw new KeyNotFoundException($"User '{trusteeUserId}' was not found.");
 
-            if (!trustee.IsEnabled)
+            if (!trustee.IsEnabled || trustee.IsSystem)
             {
                 throw new ArgumentException($"User '{trusteeUserId}' is not enabled.", nameof(trusteeUserId));
             }
@@ -179,7 +199,9 @@ public sealed class JobService(
         var updated = job with { AssignedTrusteeUserId = trusteeUserId, UpdatedAtUtc = timeProvider.GetUtcNow() };
         await jobRepository.UpdateAsync(updated, cancellationToken);
 
-        var property = await propertyRepository.GetByIdAsync(updated.PropertyId, cancellationToken);
+        var property = updated.PropertyId is Guid propertyId
+            ? await propertyRepository.GetByIdAsync(propertyId, cancellationToken)
+            : null;
         return JobDto.FromDomain(updated, property?.Name ?? "Unknown property", trusteeName);
     }
 
@@ -194,6 +216,21 @@ public sealed class JobService(
         return trustee?.DisplayName ?? "Unknown user";
     }
 
+    private async Task<Bcmp.Domain.Users.User> GetJobCreatorAsync(
+        Guid userId,
+        CancellationToken cancellationToken)
+    {
+        var user = await userRepository.GetByIdAsync(userId, cancellationToken)
+            ?? throw new UnauthorizedAccessException("The current user was not found.");
+
+        if (!user.IsEnabled && !user.IsSystem)
+        {
+            throw new UnauthorizedAccessException("The current user is disabled.");
+        }
+
+        return user;
+    }
+
     private async Task<Bcmp.Domain.Users.User> GetEnabledUserAsync(
         Guid userId,
         CancellationToken cancellationToken)
@@ -201,7 +238,7 @@ public sealed class JobService(
         var user = await userRepository.GetByIdAsync(userId, cancellationToken)
             ?? throw new UnauthorizedAccessException("The current user was not found.");
 
-        if (!user.IsEnabled)
+        if (!user.IsEnabled || user.IsSystem)
         {
             throw new UnauthorizedAccessException("The current user is disabled.");
         }
@@ -223,7 +260,7 @@ public sealed class JobService(
     private async Task<Bcmp.Domain.Users.User> GetNextRoundRobinTrusteeAsync(CancellationToken cancellationToken)
     {
         var eligibleUsers = (await userRepository.GetAllAsync(cancellationToken))
-            .Where(user => user.IsEnabled)
+            .Where(user => user.IsEnabled && !user.IsSystem)
             .OrderBy(user => user.CreatedAtUtc)
             .ThenBy(user => user.Id)
             .ToList();

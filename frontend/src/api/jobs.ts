@@ -5,8 +5,9 @@ export type JobSource = "Manual" | "Email";
 
 export interface JobDto {
   id: string;
-  propertyId: string;
-  propertyName: string;
+  jobNumber: string;
+  propertyId: string | null;
+  propertyName: string | null;
   title: string;
   description: string;
   status: JobStatus;
@@ -39,7 +40,7 @@ export interface CreateJobRequest {
 }
 
 export interface UpdateJobRequest {
-  propertyId: string;
+  propertyId: string | null;
   title: string;
   description: string;
 }

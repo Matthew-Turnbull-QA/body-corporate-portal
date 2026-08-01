@@ -1,10 +1,12 @@
 using Bcmp.Application.AccessRequests;
 using Bcmp.Application.Auth;
+using Bcmp.Application.EmailIntake;
 using Bcmp.Application.Jobs;
 using Bcmp.Application.Properties;
 using Bcmp.Application.Users;
 using Bcmp.Infrastructure.Auth;
 using Bcmp.Infrastructure.Bootstrap;
+using Bcmp.Infrastructure.EmailIntake;
 using Bcmp.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -24,6 +26,8 @@ public static class DependencyInjection
         services.AddScoped<IPropertyRepository, PropertyRepository>();
         services.AddScoped<IJobRepository, JobRepository>();
         services.AddScoped<IAccessRequestRepository, AccessRequestRepository>();
+        services.AddScoped<IEmailIntakeMessageRepository, EmailIntakeMessageRepository>();
+        services.AddScoped<IJobNumberGenerator, PostgresJobNumberGenerator>();
 
         services.AddOptions<GoogleAuthOptions>()
             .Bind(configuration.GetSection(GoogleAuthOptions.SectionName))
@@ -37,6 +41,16 @@ public static class DependencyInjection
             .ValidateOnStart();
         services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
         services.AddScoped<IPasswordHasher, Pbkdf2PasswordHasher>();
+
+        var emailIntakeOptions = configuration
+            .GetSection(EmailIntakeOptions.SectionName)
+            .Get<EmailIntakeOptions>() ?? new EmailIntakeOptions();
+        services.AddSingleton(emailIntakeOptions);
+        services.Configure<GmailEmailOptions>(configuration.GetSection(GmailEmailOptions.SectionName));
+        services.AddSingleton<GmailOAuthTokenService>();
+        services.AddScoped<IEmailInboxClient, GmailInboxClient>();
+        services.AddScoped<IEmailAcknowledgementSender, GmailAcknowledgementSender>();
+        services.AddHostedService<EmailIntakeHostedService>();
 
         // Not ValidateOnStart: Bootstrap:AdminEmail is only required when actually seeding (--seed),
         // not on every normal app start.
