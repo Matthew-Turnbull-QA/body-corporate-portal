@@ -1,5 +1,7 @@
 # Manual Test Plan — Phase 1 (Auth + Users)
 
+For the current living checklist, use `docs/MANUAL_TEST_TRACKER.md`. This file is retained for the original phase-specific test plan and historical context.
+
 ## Already verified during development (automated / live, not just unit tests)
 
 Every item below was exercised against a real local Postgres instance and a running

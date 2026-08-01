@@ -61,6 +61,7 @@ Run a browser click-test pass through the new Assignment and Notifications scree
   - Domain -> Application -> Infrastructure -> API
 - Keep changes small and testable
 - Verify with real local runs and browser checks, not only unit tests
+- Track human/browser test status in `docs/MANUAL_TEST_TRACKER.md`
 - Add a migration for any database schema change
 - When implementing UI styles and layout, use the design feature/system in the project rather than ad-hoc styling
 - Keep the handoff file updated after each completed step
