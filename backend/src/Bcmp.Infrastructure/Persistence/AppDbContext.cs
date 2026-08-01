@@ -1,6 +1,7 @@
 using Bcmp.Domain.Jobs;
 using Bcmp.Domain.Properties;
 using Bcmp.Domain.AccessRequests;
+using Bcmp.Domain.Assignments;
 using Bcmp.Domain.EmailIntake;
 using Bcmp.Domain.Users;
 using Microsoft.EntityFrameworkCore;
@@ -15,6 +16,8 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     public DbSet<JobStatusHistory> JobStatusHistory => Set<JobStatusHistory>();
     public DbSet<AccessRequest> AccessRequests => Set<AccessRequest>();
     public DbSet<EmailIntakeMessage> EmailIntakeMessages => Set<EmailIntakeMessage>();
+    public DbSet<AssignmentRule> AssignmentRules => Set<AssignmentRule>();
+    public DbSet<AssignmentNotification> AssignmentNotifications => Set<AssignmentNotification>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

@@ -19,6 +19,7 @@ Phase 1 authentication and user-management work is complete and verified locally
 - [x] Gmail email-intake POC implemented
 - [x] Dedicated Rietvlei Gmail email-intake flow manually verified
 - [x] Assignment engine MVP rules defined
+- [x] Assignment engine backend and UI implemented
 
 ## Current status summary
 
@@ -28,7 +29,7 @@ The foundation remains stable: auth, user management, database access, local pas
 
 ## Recommended next priority
 
-Implement the Assignment engine backend model/service changes from the MVP rules in `docs/ARCHITECTURE.md`.
+Run a browser click-test pass through the new Assignment and Notifications screens, then continue to dashboards and AI enrichment.
 
 ### Suggested Phase 2 sequence
 
@@ -49,7 +50,7 @@ Implement the Assignment engine backend model/service changes from the MVP rules
    Gmail polling uses MailKit against the configured mailbox/folder. New messages create `JobSource.Email` jobs with generated job numbers, no initial unit/property, and existing round-robin assignment. The app sends an acknowledgement to the sender with the job number, assigned trustee wording, and 24-hour response aim, BCCing enabled trustees. Duplicate tracking and failure diagnostics are stored in `EmailIntakeMessages`. The dedicated Rietvlei mailbox has been configured and tested with a real email intake run.
 
 4. Assignment engine
-   - MVP rules are defined in `docs/ARCHITECTURE.md`: ordered portal-admin rules, property/source/keyword matching, round-robin fallback, manual assignment override, assignment provenance tracking, and assignment-focused notifications.
+   - Implemented as a full backend/UI slice: ordered portal-admin rules, property/source/keyword matching, round-robin fallback, manual assignment override, assignment provenance tracking, in-app notification history, and best-effort Gmail assignment notification emails.
 
 5. Dashboards and AI enrichment
    - Add reporting views and lightweight automation.
@@ -66,11 +67,10 @@ Implement the Assignment engine backend model/service changes from the MVP rules
 
 ## Immediate next action
 
-1. Add the backend model/service changes for assignment rules, assignment provenance, rule evaluation, and assignment notification events.
-2. Add EF Core persistence and a migration for assignment rules/provenance.
-3. Cover routing precedence, disabled trustee skips, manual override, email-property re-evaluation, and round-robin fallback in application tests.
-4. Expose portal-admin UI controls for managing routing rules.
-5. Verify assignment behavior with real job creation from both manual entry and email intake.
+1. Click-test the portal-admin Assignment screen: create, edit, enable/disable, and reorder rules.
+2. Create a matching manual job and verify rule assignment, job assignment-source display, notification history, and email delivery.
+3. Verify an email-created job re-routes when its first property is selected unless it was manually reassigned.
+4. Continue to Dashboards and AI enrichment once the UI pass is accepted.
 
 ## Update log
 
@@ -89,3 +89,4 @@ Implement the Assignment engine backend model/service changes from the MVP rules
 - 2026-07-31: Email-intake POC implemented: job numbers, nullable job property for email-created work, status lock until unit selection, Gmail IMAP polling, duplicate/failure tracking, email acknowledgements with trustee BCC, email-intake system user, portal-admin Email Intake screen, and setup docs. Verified with backend test/build and frontend build/lint.
 - 2026-08-01: Dedicated Rietvlei Gmail email-intake flow manually tested by the user and accepted. Next roadmap priority moved to Assignment engine routing/notifications.
 - 2026-08-01: Assignment engine MVP rules defined in `docs/ARCHITECTURE.md`. Next implementation step is backend model/service changes for routing rules, assignment provenance, and assignment notification events.
+- 2026-08-01: Assignment engine backend/UI slice implemented: assignment-rule management API/UI, assignment provenance, rule-first routing with round-robin fallback, manual override, email-property re-routing, notification history, best-effort Gmail assignment emails, and EF migration `AssignmentEngine`.

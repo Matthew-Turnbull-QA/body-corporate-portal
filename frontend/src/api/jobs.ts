@@ -2,6 +2,7 @@ import { apiFetch } from "./client";
 
 export type JobStatus = "Open" | "InProgress" | "Completed" | "Cancelled";
 export type JobSource = "Manual" | "Email";
+export type AssignmentSource = "Rule" | "RoundRobinFallback" | "ManualOverride";
 
 export interface JobDto {
   id: string;
@@ -17,6 +18,9 @@ export interface JobDto {
   updatedAtUtc: string;
   assignedTrusteeUserId: string | null;
   assignedTrusteeName: string | null;
+  assignmentSource: AssignmentSource | null;
+  assignmentRuleId: string | null;
+  assignmentRuleName: string | null;
 }
 
 export interface JobStatusHistoryDto {

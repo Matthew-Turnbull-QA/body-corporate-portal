@@ -1,4 +1,5 @@
 using Bcmp.Domain.Jobs;
+using Bcmp.Domain.Assignments;
 
 namespace Bcmp.Application.Jobs;
 
@@ -15,9 +16,16 @@ public sealed record JobDto(
     DateTimeOffset CreatedAtUtc,
     DateTimeOffset UpdatedAtUtc,
     Guid? AssignedTrusteeUserId,
-    string? AssignedTrusteeName)
+    string? AssignedTrusteeName,
+    AssignmentSource? AssignmentSource,
+    Guid? AssignmentRuleId,
+    string? AssignmentRuleName)
 {
-    public static JobDto FromDomain(Job job, string? propertyName, string? assignedTrusteeName = null) => new(
+    public static JobDto FromDomain(
+        Job job,
+        string? propertyName,
+        string? assignedTrusteeName = null,
+        string? assignmentRuleName = null) => new(
         job.Id,
         job.JobNumber,
         job.PropertyId,
@@ -30,5 +38,8 @@ public sealed record JobDto(
         job.CreatedAtUtc,
         job.UpdatedAtUtc,
         job.AssignedTrusteeUserId,
-        job.AssignedTrusteeUserId is null ? null : assignedTrusteeName);
+        job.AssignedTrusteeUserId is null ? null : assignedTrusteeName,
+        job.AssignmentSource,
+        job.AssignmentRuleId,
+        job.AssignmentRuleId is null ? null : assignmentRuleName);
 }

@@ -1,8 +1,10 @@
 using Bcmp.Application.Authorization;
+using Bcmp.Application.Assignments;
 using Bcmp.Application.Jobs;
 using Bcmp.Application.Properties;
 using Bcmp.Application.Tests.TestDoubles;
 using Bcmp.Application.Users;
+using Bcmp.Domain.Assignments;
 using Bcmp.Domain.Jobs;
 using Bcmp.Domain.Properties;
 using Bcmp.Domain.Users;
@@ -20,6 +22,9 @@ public class JobServiceTests
     private IPropertyRepository _propertyRepository = null!;
     private IUserRepository _userRepository = null!;
     private IJobNumberGenerator _jobNumberGenerator = null!;
+    private IAssignmentRuleRepository _assignmentRuleRepository = null!;
+    private IAssignmentNotificationRepository _assignmentNotificationRepository = null!;
+    private IAssignmentNotificationEmailSender _assignmentNotificationEmailSender = null!;
     private JobService _sut = null!;
 
     [SetUp]
@@ -29,9 +34,27 @@ public class JobServiceTests
         _propertyRepository = Substitute.For<IPropertyRepository>();
         _userRepository = Substitute.For<IUserRepository>();
         _jobNumberGenerator = Substitute.For<IJobNumberGenerator>();
+        _assignmentRuleRepository = Substitute.For<IAssignmentRuleRepository>();
+        _assignmentNotificationRepository = Substitute.For<IAssignmentNotificationRepository>();
+        _assignmentNotificationEmailSender = Substitute.For<IAssignmentNotificationEmailSender>();
         _jobNumberGenerator.GenerateNextAsync(Arg.Any<CancellationToken>()).Returns("BCMP-000001");
-        _sut = new JobService(_jobRepository, _propertyRepository, _userRepository, _jobNumberGenerator, new FixedTimeProvider(Now));
+        _assignmentRuleRepository.GetAllAsync(Arg.Any<CancellationToken>()).Returns([]);
+        _assignmentNotificationEmailSender
+            .SendAsync(Arg.Any<User>(), Arg.Any<AssignmentNotification>(), Arg.Any<CancellationToken>())
+            .Returns(Task.CompletedTask);
+        _sut = NewSut(new FixedTimeProvider(Now));
     }
+
+    private JobService NewSut(TimeProvider timeProvider) =>
+        new(
+            _jobRepository,
+            _propertyRepository,
+            _userRepository,
+            _jobNumberGenerator,
+            _assignmentRuleRepository,
+            _assignmentNotificationRepository,
+            _assignmentNotificationEmailSender,
+            timeProvider);
 
     private static Property MakeProperty(Guid? id = null) =>
         Property.Create(id ?? Guid.NewGuid(), "Sunset Villas", "12 Ocean Drive", "North Shore", "NSW", "2000", Now);
@@ -41,6 +64,23 @@ public class JobServiceTests
 
     private static User MakeAdmin(Guid? id = null, bool enabled = true, DateTimeOffset? createdAt = null) =>
         User.Create(id ?? Guid.NewGuid(), "admin@example.com", "Alex Admin", createdAt ?? Now, isPortalAdmin: true) with { IsEnabled = enabled };
+
+    private static AssignmentRule MakeRule(
+        Guid targetTrusteeUserId,
+        int priority = 1,
+        Guid? propertyId = null,
+        JobSource? source = null,
+        string[]? keywords = null,
+        bool enabled = true) =>
+        AssignmentRule.Create(
+            Guid.NewGuid(),
+            $"Rule {priority}",
+            priority,
+            targetTrusteeUserId,
+            propertyId,
+            source,
+            keywords ?? [],
+            Now) with { IsEnabled = enabled };
 
     [Test]
     public async Task CreateJobAsync_AssignsFirstEnabledTrusteeWhenNoPriorAssignmentsExist()
@@ -117,6 +157,70 @@ public class JobServiceTests
     }
 
     [Test]
+    public async Task CreateJobAsync_WithMatchingRules_UsesHighestPriorityRuleAndNotifiesTrustee()
+    {
+        var property = MakeProperty();
+        var admin = MakeAdmin();
+        var lowerPriorityTrustee = MakeTrustee(Guid.NewGuid()) with { Email = "low@example.com", DisplayName = "Lower Priority" };
+        var winningTrustee = MakeTrustee(Guid.NewGuid()) with { Email = "win@example.com", DisplayName = "Winner Trustee" };
+        var lowerPriorityRule = MakeRule(lowerPriorityTrustee.Id, priority: 2, propertyId: property.Id);
+        var winningRule = MakeRule(winningTrustee.Id, priority: 1, propertyId: property.Id, keywords: ["roof"]);
+        _propertyRepository.GetByIdAsync(property.Id).Returns(property);
+        _userRepository.GetByIdAsync(admin.Id).Returns(admin);
+        _userRepository.GetByIdAsync(winningTrustee.Id).Returns(winningTrustee);
+        _userRepository.GetByIdAsync(lowerPriorityTrustee.Id).Returns(lowerPriorityTrustee);
+        _userRepository.GetAllAsync().Returns([admin, winningTrustee, lowerPriorityTrustee]);
+        _assignmentRuleRepository.GetAllAsync(Arg.Any<CancellationToken>()).Returns([lowerPriorityRule, winningRule]);
+
+        var result = await _sut.CreateJobAsync(property.Id, "Roof leak", "Water entering top floor", JobSource.Manual, admin.Id);
+
+        result.AssignedTrusteeUserId.Should().Be(winningTrustee.Id);
+        result.AssignmentSource.Should().Be(AssignmentSource.Rule);
+        result.AssignmentRuleId.Should().Be(winningRule.Id);
+        await _jobRepository.Received(1).AddAsync(
+            Arg.Is<Job>(job =>
+                job.AssignedTrusteeUserId == winningTrustee.Id
+                && job.AssignmentSource == AssignmentSource.Rule
+                && job.AssignmentRuleId == winningRule.Id),
+            Arg.Any<CancellationToken>());
+        await _assignmentNotificationRepository.Received(1).AddAsync(
+            Arg.Is<AssignmentNotification>(notification =>
+                notification.RecipientUserId == winningTrustee.Id
+                && notification.Type == AssignmentNotificationType.Assigned),
+            Arg.Any<CancellationToken>());
+        await _assignmentNotificationEmailSender.Received(1).SendAsync(
+            winningTrustee,
+            Arg.Any<AssignmentNotification>(),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task CreateJobAsync_WithMatchingDisabledRuleTarget_SkipsRuleFallsBackAndWarnsAdmins()
+    {
+        var property = MakeProperty();
+        var admin = MakeAdmin(createdAt: Now.AddMinutes(-2));
+        var disabledTarget = MakeTrustee(Guid.NewGuid(), enabled: false) with { Email = "disabled@example.com" };
+        var fallbackTrustee = MakeTrustee(Guid.NewGuid(), createdAt: Now.AddMinutes(-1));
+        var rule = MakeRule(disabledTarget.Id, propertyId: property.Id);
+        _propertyRepository.GetByIdAsync(property.Id).Returns(property);
+        _userRepository.GetByIdAsync(admin.Id).Returns(admin);
+        _userRepository.GetByIdAsync(disabledTarget.Id).Returns(disabledTarget);
+        _userRepository.GetAllAsync().Returns([fallbackTrustee, admin, disabledTarget]);
+        _jobRepository.GetAllAsync().Returns([]);
+        _assignmentRuleRepository.GetAllAsync(Arg.Any<CancellationToken>()).Returns([rule]);
+
+        var result = await _sut.CreateJobAsync(property.Id, "Roof leak", null, JobSource.Manual, admin.Id);
+
+        result.AssignmentSource.Should().Be(AssignmentSource.RoundRobinFallback);
+        result.AssignedTrusteeUserId.Should().Be(admin.Id);
+        await _assignmentNotificationRepository.Received().AddAsync(
+            Arg.Is<AssignmentNotification>(notification =>
+                notification.RecipientUserId == admin.Id
+                && notification.Type == AssignmentNotificationType.RoutingWarning),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Test]
     public async Task CreateJobAsync_WithUnknownProperty_Throws()
     {
         _propertyRepository.GetByIdAsync(Arg.Any<Guid>()).Returns((Property?)null);
@@ -188,7 +292,7 @@ public class JobServiceTests
         var property = MakeProperty();
         var trustee = MakeTrustee();
         var later = Now.AddDays(1);
-        var sut = new JobService(_jobRepository, _propertyRepository, _userRepository, _jobNumberGenerator, new FixedTimeProvider(later));
+        var sut = NewSut(new FixedTimeProvider(later));
         var job = Job.Create(Guid.NewGuid(), "BCMP-000001", property.Id, "Leaking roof", "Description", JobSource.Manual, trustee.Id, Now)
             with { AssignedTrusteeUserId = trustee.Id };
         _jobRepository.GetByIdAsync(job.Id).Returns(job);
@@ -324,7 +428,7 @@ public class JobServiceTests
             with { AssignedTrusteeUserId = editor.Id };
         var history = JobStatusHistory.Create(Guid.NewGuid(), job.Id, JobStatus.Open, JobStatus.Completed, "Original", Guid.NewGuid(), Now);
         var later = Now.AddDays(1);
-        var sut = new JobService(_jobRepository, _propertyRepository, _userRepository, _jobNumberGenerator, new FixedTimeProvider(later));
+        var sut = NewSut(new FixedTimeProvider(later));
         _jobRepository.GetByIdAsync(job.Id).Returns(job);
         _jobRepository.GetStatusHistoryByIdAsync(history.Id).Returns(history);
         _userRepository.GetByIdAsync(editor.Id).Returns(editor);
@@ -356,7 +460,82 @@ public class JobServiceTests
 
         result.AssignedTrusteeUserId.Should().Be(trustee.Id);
         result.AssignedTrusteeName.Should().Be("Terry Trustee");
-        await _jobRepository.Received(1).UpdateAsync(Arg.Is<Job>(j => j.AssignedTrusteeUserId == trustee.Id), Arg.Any<CancellationToken>());
+        result.AssignmentSource.Should().Be(AssignmentSource.ManualOverride);
+        await _jobRepository.Received(1).UpdateAsync(
+            Arg.Is<Job>(j => j.AssignedTrusteeUserId == trustee.Id && j.AssignmentSource == AssignmentSource.ManualOverride),
+            Arg.Any<CancellationToken>());
+        await _assignmentNotificationRepository.Received(1).AddAsync(
+            Arg.Is<AssignmentNotification>(notification =>
+                notification.RecipientUserId == trustee.Id
+                && notification.Type == AssignmentNotificationType.ReassignedTo),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task UpdateJobAsync_EmailJobWithFirstPropertySelection_ReroutesWhenNotManuallyOverridden()
+    {
+        var property = MakeProperty();
+        var assigned = MakeTrustee(Guid.NewGuid()) with { Email = "assigned@example.com" };
+        var ruleTarget = MakeTrustee(Guid.NewGuid()) with { Email = "rule@example.com", DisplayName = "Rule Trustee" };
+        var editor = assigned;
+        var rule = MakeRule(ruleTarget.Id, propertyId: property.Id);
+        var job = Job.Create(Guid.NewGuid(), "BCMP-000001", null, "Email job", "Description", JobSource.Email, Guid.NewGuid(), Now)
+            with
+            {
+                AssignedTrusteeUserId = assigned.Id,
+                AssignmentSource = AssignmentSource.RoundRobinFallback,
+            };
+        _jobRepository.GetByIdAsync(job.Id).Returns(job);
+        _propertyRepository.GetByIdAsync(property.Id).Returns(property);
+        _userRepository.GetByIdAsync(editor.Id).Returns(editor);
+        _userRepository.GetByIdAsync(ruleTarget.Id).Returns(ruleTarget);
+        _userRepository.GetByIdAsync(assigned.Id).Returns(assigned);
+        _userRepository.GetAllAsync().Returns([assigned, ruleTarget]);
+        _assignmentRuleRepository.GetAllAsync(Arg.Any<CancellationToken>()).Returns([rule]);
+
+        var result = await _sut.UpdateJobAsync(job.Id, property.Id, job.Title, job.Description, editor.Id);
+
+        result.AssignedTrusteeUserId.Should().Be(ruleTarget.Id);
+        result.AssignmentSource.Should().Be(AssignmentSource.Rule);
+        result.AssignmentRuleId.Should().Be(rule.Id);
+        await _assignmentNotificationRepository.Received().AddAsync(
+            Arg.Is<AssignmentNotification>(notification =>
+                notification.RecipientUserId == ruleTarget.Id
+                && notification.Type == AssignmentNotificationType.ReassignedTo),
+            Arg.Any<CancellationToken>());
+        await _assignmentNotificationRepository.Received().AddAsync(
+            Arg.Is<AssignmentNotification>(notification =>
+                notification.RecipientUserId == assigned.Id
+                && notification.Type == AssignmentNotificationType.ReassignedAway),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task UpdateJobAsync_EmailJobWithManualOverride_DoesNotRerouteOnFirstPropertySelection()
+    {
+        var property = MakeProperty();
+        var admin = MakeAdmin();
+        var assigned = MakeTrustee(Guid.NewGuid()) with { Email = "assigned@example.com" };
+        var ruleTarget = MakeTrustee(Guid.NewGuid()) with { Email = "rule@example.com" };
+        var rule = MakeRule(ruleTarget.Id, propertyId: property.Id);
+        var job = Job.Create(Guid.NewGuid(), "BCMP-000001", null, "Email job", "Description", JobSource.Email, Guid.NewGuid(), Now)
+            with
+            {
+                AssignedTrusteeUserId = assigned.Id,
+                AssignmentSource = AssignmentSource.ManualOverride,
+            };
+        _jobRepository.GetByIdAsync(job.Id).Returns(job);
+        _propertyRepository.GetByIdAsync(property.Id).Returns(property);
+        _userRepository.GetByIdAsync(admin.Id).Returns(admin);
+        _assignmentRuleRepository.GetAllAsync(Arg.Any<CancellationToken>()).Returns([rule]);
+
+        var result = await _sut.UpdateJobAsync(job.Id, property.Id, job.Title, job.Description, admin.Id);
+
+        result.AssignedTrusteeUserId.Should().Be(assigned.Id);
+        result.AssignmentSource.Should().Be(AssignmentSource.ManualOverride);
+        await _assignmentNotificationRepository.DidNotReceive().AddAsync(
+            Arg.Any<AssignmentNotification>(),
+            Arg.Any<CancellationToken>());
     }
 
     [Test]

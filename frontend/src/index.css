@@ -391,6 +391,49 @@ tbody tr:nth-child(even) {
   min-width: 0;
 }
 
+.assignment-source {
+  display: block;
+  margin-top: 4px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.checkbox-row {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+
+.notification-list {
+  display: grid;
+  gap: 12px;
+}
+
+.notification-item {
+  align-items: flex-start;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  padding: 16px;
+}
+
+.notification-item h3 {
+  font-size: 16px;
+  margin: 0 0 6px;
+}
+
+.notification-item p {
+  margin: 0 0 6px;
+}
+
+.notification-item time {
+  color: var(--text-muted);
+  flex: 0 0 auto;
+  font-size: 13px;
+}
+
 .job-title-button {
   appearance: none;
   border: 0;

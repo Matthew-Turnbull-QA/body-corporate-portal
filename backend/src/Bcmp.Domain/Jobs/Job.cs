@@ -1,3 +1,5 @@
+using Bcmp.Domain.Assignments;
+
 namespace Bcmp.Domain.Jobs;
 
 public sealed record Job
@@ -13,6 +15,8 @@ public sealed record Job
     public required DateTimeOffset CreatedAtUtc { get; init; }
     public required DateTimeOffset UpdatedAtUtc { get; init; }
     public Guid? AssignedTrusteeUserId { get; init; }
+    public AssignmentSource? AssignmentSource { get; init; }
+    public Guid? AssignmentRuleId { get; init; }
 
     public static Job Create(
         Guid id,
@@ -64,4 +68,17 @@ public sealed record Job
             UpdatedAtUtc = updatedAtUtc,
         };
     }
+
+    public Job WithAssignment(
+        Guid? assignedTrusteeUserId,
+        AssignmentSource? assignmentSource,
+        Guid? assignmentRuleId,
+        DateTimeOffset updatedAtUtc) =>
+        this with
+        {
+            AssignedTrusteeUserId = assignedTrusteeUserId,
+            AssignmentSource = assignmentSource,
+            AssignmentRuleId = assignmentRuleId,
+            UpdatedAtUtc = updatedAtUtc,
+        };
 }

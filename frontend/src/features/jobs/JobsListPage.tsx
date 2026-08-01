@@ -112,6 +112,22 @@ function displayProperty(job: JobDto) {
   return job.propertyName ?? "Unit required";
 }
 
+function displayAssignmentSource(job: JobDto) {
+  if (job.assignmentSource === "Rule") {
+    return job.assignmentRuleName ? `Rule: ${job.assignmentRuleName}` : "Rule";
+  }
+
+  if (job.assignmentSource === "ManualOverride") {
+    return "Manual";
+  }
+
+  if (job.assignmentSource === "RoundRobinFallback") {
+    return "Round robin";
+  }
+
+  return "Untracked";
+}
+
 function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
 }
@@ -561,6 +577,7 @@ export function JobsListPage() {
             ) : (
               (job.assignedTrusteeName ?? "Unassigned")
             )}
+            <span className="assignment-source">{displayAssignmentSource(job)}</span>
           </td>
           <td>{formatDateTime(job.createdAtUtc)}</td>
           <td>{formatDateTime(job.updatedAtUtc)}</td>
@@ -760,6 +777,10 @@ export function JobsListPage() {
                 <div>
                   <dt>Assigned to</dt>
                   <dd>{job.assignedTrusteeName ?? "Unassigned"}</dd>
+                </div>
+                <div>
+                  <dt>Assignment</dt>
+                  <dd>{displayAssignmentSource(job)}</dd>
                 </div>
                 <div>
                   <dt>Created</dt>

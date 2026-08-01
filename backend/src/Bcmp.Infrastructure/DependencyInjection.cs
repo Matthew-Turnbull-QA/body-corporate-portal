@@ -1,4 +1,5 @@
 using Bcmp.Application.AccessRequests;
+using Bcmp.Application.Assignments;
 using Bcmp.Application.Auth;
 using Bcmp.Application.EmailIntake;
 using Bcmp.Application.Jobs;
@@ -27,6 +28,8 @@ public static class DependencyInjection
         services.AddScoped<IJobRepository, JobRepository>();
         services.AddScoped<IAccessRequestRepository, AccessRequestRepository>();
         services.AddScoped<IEmailIntakeMessageRepository, EmailIntakeMessageRepository>();
+        services.AddScoped<IAssignmentRuleRepository, AssignmentRuleRepository>();
+        services.AddScoped<IAssignmentNotificationRepository, AssignmentNotificationRepository>();
         services.AddScoped<IJobNumberGenerator, PostgresJobNumberGenerator>();
 
         services.AddOptions<GoogleAuthOptions>()
@@ -50,6 +53,7 @@ public static class DependencyInjection
         services.AddSingleton<GmailOAuthTokenService>();
         services.AddScoped<IEmailInboxClient, GmailInboxClient>();
         services.AddScoped<IEmailAcknowledgementSender, GmailAcknowledgementSender>();
+        services.AddScoped<IAssignmentNotificationEmailSender, GmailAssignmentNotificationEmailSender>();
         services.AddHostedService<EmailIntakeHostedService>();
 
         // Not ValidateOnStart: Bootstrap:AdminEmail is only required when actually seeding (--seed),

@@ -53,5 +53,13 @@ public sealed class JobConfiguration : IEntityTypeConfiguration<Job>
         builder.Property(j => j.AssignedTrusteeUserId);
 
         builder.HasIndex(j => j.AssignedTrusteeUserId);
+
+        builder.Property(j => j.AssignmentSource)
+            .HasConversion<string>()
+            .HasMaxLength(40);
+
+        builder.Property(j => j.AssignmentRuleId);
+
+        builder.HasIndex(j => j.AssignmentRuleId);
     }
 }

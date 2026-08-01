@@ -37,6 +37,9 @@ export function AppLayout() {
             <NavLink className={({ isActive }) => `app-shell__nav-link ${isActive ? "active" : ""}`} to="/jobs">
               Jobs
             </NavLink>
+            <NavLink className={({ isActive }) => `app-shell__nav-link ${isActive ? "active" : ""}`} to="/notifications">
+              Notifications
+            </NavLink>
             <NavLink className={({ isActive }) => `app-shell__nav-link ${isActive ? "active" : ""}`} to="/properties">
               Properties
             </NavLink>
@@ -56,6 +59,12 @@ export function AppLayout() {
                   to="/email-intake"
                 >
                   Email
+                </NavLink>
+                <NavLink
+                  className={({ isActive }) => `app-shell__nav-link ${isActive ? "active" : ""}`}
+                  to="/assignment"
+                >
+                  Assignment
                 </NavLink>
               </>
             )}

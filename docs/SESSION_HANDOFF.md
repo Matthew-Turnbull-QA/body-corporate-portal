@@ -14,13 +14,13 @@ dedicated Rietvlei Gmail intake flow has been configured and manually tested
 by the user, including real intake, acknowledgement email, trustee BCC,
 duplicate handling, and the unit-required status lock.
 
-The Assignment engine MVP rules are now defined in `docs/ARCHITECTURE.md`:
-ordered portal-admin rules, property/source/keyword matching, round-robin
-fallback, manual assignment override, assignment provenance tracking, and
-assignment-focused notifications. The next backlog item is backend
-model/service implementation for those rules. Dashboards and AI enrichment
-come after that. `docs/PROJECT_STATE.md` is the source of truth for the
-current roadmap.
+The Assignment engine backend/UI slice is implemented: ordered portal-admin
+rules, property/source/keyword matching, round-robin fallback, manual
+assignment override, assignment provenance tracking, in-app notification
+history, and best-effort Gmail assignment emails. The new EF migration is
+`AssignmentEngine`. The next practical step is a browser click-test pass
+through Assignment, Jobs, and Notifications, then Dashboards/AI enrichment.
+`docs/PROJECT_STATE.md` is the source of truth for the current roadmap.
 
 ## Where things stand (as of 2026-07-20)
 
@@ -86,12 +86,10 @@ instance while giving feedback, so the core flows are very likely fine.
 Worth an explicit pass through `/jobs` (add, sort, complete, assign) before
 treating it as done.
 
-**Phase 2 status**: Properties, Jobs, and the email-intake POC are done.
-The full Assignment engine is next: routing/notifications on top of today's
-round-robin/manual-assignment foundation. Dashboards/AI enrichment has not
-been started. See `docs/PROJECT_STATE.md` section "Suggested Phase 2
-sequence" for the intended shape of each - that is the file that actually
-carries this roadmap.
+**Phase 2 status**: Properties, Jobs, email intake, and the Assignment engine
+MVP are done. Dashboards/AI enrichment has not been started. See
+`docs/PROJECT_STATE.md` section "Suggested Phase 2 sequence" for the intended
+shape of each - that is the file that actually carries this roadmap.
 
 ## Getting it running locally
 

@@ -77,7 +77,10 @@ public class EmailIntakeServiceTests
                 Now,
                 Now,
                 assignedTrustee.Id,
-                "Terry Smith"));
+                "Terry Smith",
+                null,
+                null,
+                null));
 
         var result = await _sut.PollOnceAsync();
 
